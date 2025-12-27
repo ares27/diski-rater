@@ -106,6 +106,10 @@ function App() {
     setShowMatchModal(true); // Open the moda
   };
 
+  const handleClearSelections = () => {
+    setPlayers((prev) => prev.map((p) => ({ ...p, isSelected: false })));
+  };
+
   return (
     <div className="bg-light" style={{ minHeight: "100vh" }}>
       <Navbar bg="success" variant="dark" className="mb-4 shadow-sm sticky-top">
@@ -144,7 +148,17 @@ function App() {
       </Container>
       {selectedCount >= 2 && (
         <div className="fixed-bottom bg-white p-3 shadow-lg border-top d-flex justify-content-between align-items-center">
-          <span className="fw-bold">{selectedCount} Players Ready</span>
+          <div className="d-flex flex-column">
+            <span className="fw-bold">{selectedCount} Players Ready</span>
+            <Button
+              variant="link"
+              size="sm"
+              className="text-danger p-0 text-start"
+              onClick={handleClearSelections}
+            >
+              Clear All
+            </Button>
+          </div>
           <Button variant="success" size="lg" onClick={generateTeams}>
             Generate Teams
           </Button>

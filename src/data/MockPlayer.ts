@@ -35,7 +35,7 @@ export const MOCK_PLAYERS: Player[] = [
     id: "6",
     name: "Zion",
     position: "MID",
-    ratings: { pace: 65, technical: 80, physical: 55, reliability: 65 },
+    ratings: { pace: 65, technical: 75, physical: 55, reliability: 65 },
   },
   {
     id: "7",
