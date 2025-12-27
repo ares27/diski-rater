@@ -32,13 +32,13 @@ function App() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   const {
-    offlineReady: [offlineReady, setOfflineReady],
+    // offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh], // This was the error
     updateServiceWorker,
   } = useRegisterSW();
 
   const close = () => {
-    setOfflineReady(false);
+    // setOfflineReady(false);
     setNeedRefresh(false);
   };
 
