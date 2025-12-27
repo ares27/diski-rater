@@ -1,16 +1,16 @@
-import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
-import { useState, useEffect } from 'react';
-import type { Player } from '../types/types';
+import { Modal, Button, Form } from "react-bootstrap";
+import { useState, useEffect } from "react";
+import type { Player } from "../types/types";
 
 interface Props {
   show: boolean;
   player: Player | null;
   onHide: () => void;
-  onSave: (playerId: string, newRatings: Player['ratings']) => void;
+  onSave: (playerId: string, newRatings: Player["ratings"]) => void;
 }
 
 const RatingModal = ({ show, player, onHide, onSave }: Props) => {
-  const [ratings, setRatings] = useState<Player['ratings']>({
+  const [ratings, setRatings] = useState<Player["ratings"]>({
     pace: 50,
     technical: 50,
     physical: 50,
@@ -41,14 +41,18 @@ const RatingModal = ({ show, player, onHide, onSave }: Props) => {
           <div key={key} className="mb-4">
             <div className="d-flex justify-content-between mb-1">
               <label className="text-capitalize fw-bold">{key}</label>
-              <span className="text-success fw-bold">{ratings[key as keyof Player['ratings']]}</span>
+              <span className="text-success fw-bold">
+                {ratings[key as keyof Player["ratings"]]}
+              </span>
             </div>
             <Form.Range
-              value={ratings[key as keyof Player['ratings']]}
-              onChange={(e) => setRatings({
-                ...ratings,
-                [key]: parseInt(e.target.value)
-              })}
+              value={ratings[key as keyof Player["ratings"]]}
+              onChange={(e) =>
+                setRatings({
+                  ...ratings,
+                  [key]: parseInt(e.target.value),
+                })
+              }
               step={1}
               min={0}
               max={100}
@@ -57,8 +61,12 @@ const RatingModal = ({ show, player, onHide, onSave }: Props) => {
         ))}
       </Modal.Body>
       <Modal.Footer className="border-0">
-        <Button variant="light" onClick={onHide}>Cancel</Button>
-        <Button variant="success" onClick={handleSave} className="px-4">Save Rating</Button>
+        <Button variant="light" onClick={onHide}>
+          Cancel
+        </Button>
+        <Button variant="success" onClick={handleSave} className="px-4">
+          Save Rating
+        </Button>
       </Modal.Footer>
     </Modal>
   );
