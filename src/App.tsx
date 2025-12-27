@@ -1,5 +1,6 @@
+import { version } from "../package.json";
 import { useState, useEffect } from "react";
-import { Button, Container, Navbar, Row, Col } from "react-bootstrap";
+import { Badge, Button, Container, Navbar, Row, Col } from "react-bootstrap";
 import PlayerCard from "./components/PlayerCard";
 import RatingModal from "./components/RatingModal"; // Import the modal
 import MatchModal from "./components/MatchModal"; // Import the modal
@@ -91,6 +92,13 @@ function App() {
       <Navbar bg="success" variant="dark" className="mb-4 shadow-sm sticky-top">
         <Container className="d-flex justify-content-between">
           <Navbar.Brand href="#">⚽ DiskiRater</Navbar.Brand>
+          <Badge
+            bg="light"
+            text="dark"
+            style={{ fontSize: "0.6rem", opacity: 0.8 }}
+          >
+            v{version}
+          </Badge>
           <Button
             variant="light"
             size="sm"
