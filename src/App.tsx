@@ -44,8 +44,16 @@ function App() {
 
   // Run this every time 'players' changes to save data
   useEffect(() => {
-    localStorage.setItem("soccer-players", JSON.stringify(players));
-  }, [players]);
+    // localStorage.setItem("soccer-players", JSON.stringify(players));
+    const lastVersion = localStorage.getItem("app-version");
+    if (lastVersion !== version) {
+      // Version mismatch! Clear storage to pull in new Mock data
+      localStorage.removeItem("soccer-players");
+      localStorage.setItem("app-version", version);
+      // Reload to apply the Mock data fresh
+      window.location.reload();
+    }
+  }, [version]);
 
   const handleAddPlayer = (newPlayer: Player) => {
     setPlayers((prev) => [newPlayer, ...prev]);
