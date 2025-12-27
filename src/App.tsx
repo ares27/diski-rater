@@ -8,6 +8,8 @@ import AddPlayerModal from "./components/AddPlayerModal"; // Import the modal
 import { MOCK_PLAYERS } from "./data/MockPlayer";
 import type { Player } from "./types/types";
 
+import { useRegisterSW } from "virtual:pwa-register/react";
+
 function App() {
   // const [players, setPlayers] = useState(MOCK_PLAYERS);
   const [players, setPlayers] = useState<Player[]>(() => {
@@ -22,6 +24,17 @@ function App() {
   const [team1, setTeam1] = useState<Player[]>([]);
   const [team2, setTeam2] = useState<Player[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  const {
+    offlineReady: [offlineReady, setOfflineReady],
+    needRefresh: [needRefresh, setNeedRefresh], // This was the error
+    updateServiceWorker,
+  } = useRegisterSW();
+
+  const close = () => {
+    setOfflineReady(false);
+    setNeedRefresh(false);
+  };
 
   // Run this every time 'players' changes to save data
   useEffect(() => {
@@ -151,6 +164,30 @@ function App() {
         onHide={() => setShowModal(false)}
         onSave={handleUpdateRating}
       />
+
+      {/* 3. Update the conditional check at the bottom */}
+      {needRefresh && (
+        <div
+          className="fixed-top bg-dark text-white p-3 d-flex justify-content-between align-items-center shadow-lg"
+          style={{ zIndex: 9999 }}
+        >
+          <span>New version available!</span>
+          <div>
+            <button
+              className="btn btn-sm btn-success me-2"
+              onClick={() => updateServiceWorker(true)}
+            >
+              Update
+            </button>
+            <button
+              className="btn btn-sm btn-outline-light"
+              onClick={() => close()}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
