@@ -13,8 +13,14 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 function App() {
   // const [players, setPlayers] = useState(MOCK_PLAYERS);
   const [players, setPlayers] = useState<Player[]>(() => {
-    const saved = localStorage.getItem("soccer-players");
-    return saved ? JSON.parse(saved) : MOCK_PLAYERS;
+    try {
+      const saved = localStorage.getItem("soccer-players");
+      // Only return parsed data if it actually exists
+      return saved ? JSON.parse(saved) : MOCK_PLAYERS;
+    } catch (error) {
+      console.error("Failed to load players from storage", error);
+      return MOCK_PLAYERS; // Fallback to mocks if storage is broken
+    }
   });
 
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
