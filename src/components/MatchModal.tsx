@@ -83,7 +83,10 @@ const TeamColumn = ({ title, players, avg, color }: any) => (
     </div>
     <ListGroup variant="flush">
       {players.map((p: Player) => (
-        <ListGroup.Item key={p.id} className="bg-transparent border-0 px-1">
+        <ListGroup.Item
+          key={p?._id || p.id}
+          className="bg-transparent border-0 px-1"
+        >
           <Badge bg="secondary" className="me-2">
             {p.position}
           </Badge>

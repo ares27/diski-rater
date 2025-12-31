@@ -24,7 +24,7 @@ const RatingModal = ({ show, player, onHide, onSave }: Props) => {
 
   const handleSave = () => {
     if (player) {
-      onSave(player.id, ratings);
+      onSave(player._id || player.id, ratings);
       onHide();
     }
   };

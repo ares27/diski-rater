@@ -13,11 +13,22 @@ interface Props {
   player: Player;
   onRate: (player: Player) => void;
   onToggleSelect: (playerId: string) => void;
+  canRate?: boolean; // Only true if user.role === "Captain"
+  hideCheck?: boolean;
 }
 
-const PlayerCard = ({ player, onRate, onToggleSelect }: Props) => {
+const PlayerCard = ({
+  player,
+  onRate,
+  onToggleSelect,
+  canRate = false,
+  hideCheck = false,
+}: Props) => {
   const stats = Object.values(player.ratings);
   const overall = Math.round(stats.reduce((a, b) => a + b, 0) / stats.length);
+
+  // Use diskiName primarily, fallback to name, then "Player"
+  const displayName = player.diskiName || player.name || "New Player";
 
   return (
     <Card
@@ -27,30 +38,45 @@ const PlayerCard = ({ player, onRate, onToggleSelect }: Props) => {
       style={{ borderRadius: "15px", transition: "0.3s" }}
     >
       <Card.Body>
-        <div className="d-flex justify-content-end mb-2">
-          <Form.Check
-            type="switch"
-            label={player.isSelected ? "Playing" : "Bench"}
-            checked={player.isSelected || false}
-            onChange={() => onToggleSelect(player.id)}
-          />
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          {/* Main Title now shows Diski Name */}
+          <Card.Title className="mb-0 fw-bold text-dark">
+            {displayName}
+          </Card.Title>
+
+          {!hideCheck && (
+            <Form.Check
+              type="switch"
+              id={`status-switch-${player._id || player.id}`}
+              label={player.isSelected ? "Playing" : "Bench"}
+              checked={player.isSelected || false}
+              onChange={() => onToggleSelect(player._id || player.id)}
+              className={
+                player.isSelected ? "text-success fw-bold" : "text-muted"
+              }
+            />
+          )}
         </div>
+
         <Row className="align-items-center">
-          {/* Left Side: Avatar & Main Info */}
+          {/* Left Side: Avatar & Overall */}
           <Col xs={4} className="text-center border-end">
             <div
-              className="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2"
+              className={`${
+                player.isSelected ? "bg-success" : "bg-secondary"
+              } text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 shadow-sm`}
               style={{
                 width: "60px",
                 height: "60px",
                 fontSize: "1.5rem",
                 fontWeight: "bold",
+                transition: "background-color 0.3s ease",
               }}
             >
-              {player.name.charAt(0)}
+              {displayName.charAt(0).toUpperCase()}
             </div>
-            <Badge bg="dark" className="mb-1">
-              {player.position}
+            <Badge bg="dark" className="mb-1 px-2">
+              {player.position || "SUB"}
             </Badge>
             <div className="h4 mb-0 text-success fw-bold">{overall}</div>
             <small
@@ -63,10 +89,6 @@ const PlayerCard = ({ player, onRate, onToggleSelect }: Props) => {
 
           {/* Right Side: Stats & Action */}
           <Col xs={8} className="ps-4">
-            <div className="d-flex justify-content-between align-items-start mb-2">
-              <h5 className="mb-0 fw-bold">{player.name}</h5>
-            </div>
-
             <AttributeRow
               label="PACE"
               value={player.ratings.pace}
@@ -89,15 +111,30 @@ const PlayerCard = ({ player, onRate, onToggleSelect }: Props) => {
             />
 
             <div className="d-grid mt-3">
-              <Button
-                variant="outline-success"
-                size="sm"
-                className="fw-bold"
-                onClick={() => onRate(player)} // Add this prop
-                disabled
-              >
-                Rate Player
-              </Button>
+              {/* Rate Button: ONLY visible/active for Captains 
+                This protects the integrity of the skill ratings.
+            */}
+              {canRate ? (
+                <div className="d-grid mt-3">
+                  <Button
+                    variant="outline-success"
+                    size="sm"
+                    className="fw-bold rounded-pill"
+                    onClick={() => onRate(player)}
+                  >
+                    Rate {displayName.split(" ")[0]}
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center mt-3">
+                  <span
+                    className="text-muted"
+                    style={{ fontSize: "0.65rem", fontStyle: "italic" }}
+                  >
+                    Official Ratings Locked
+                  </span>
+                </div>
+              )}
             </div>
           </Col>
         </Row>
@@ -120,8 +157,10 @@ const AttributeRow = ({
       className="d-flex justify-content-between"
       style={{ fontSize: "0.75rem" }}
     >
-      <span className="fw-bold text-muted">{label}</span>
-      <span>{value}</span>
+      <span className="fw-bold text-muted" style={{ fontSize: "0.65rem" }}>
+        {label}
+      </span>
+      <span className="fw-bold">{value}</span>
     </div>
     <ProgressBar
       variant={color}
