@@ -509,7 +509,12 @@ function App() {
         </Navbar>
       )}
 
-      <AppRoutes user={user} userRole={userRole} squadProps={squadProps} />
+      <AppRoutes
+        user={user}
+        userRole={userRole}
+        squadProps={squadProps}
+        onRefresh={fetchPlayers}
+      />
 
       <AddPlayerModal
         show={showAddModal}

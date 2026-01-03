@@ -11,55 +11,43 @@ import {
 } from "react-bootstrap";
 import PlayerCard from "../components/PlayerCard";
 import type { Player } from "../types/types";
-import { getUserStatus } from "../services/api/api";
-import { auth } from "../firebase/config";
 
 interface SquadPageProps {
   loading: boolean;
   players: Player[];
   userArea: string;
+  userRole: string; // Added userRole to props
   selectedCount: number;
   handleRateClick: (player: Player) => void;
   handleToggleSelect: (id: string) => void;
   handleClearSelections: () => void;
   generateTeams: () => void;
+  onRefresh: () => void;
 }
 
 export const SquadPage = ({
   loading,
   players,
   userArea,
+  userRole, // Destructure userRole
   handleRateClick,
   handleToggleSelect,
   handleClearSelections,
   generateTeams,
+  onRefresh,
 }: SquadPageProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showOnlySelected, setShowOnlySelected] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
 
+  // Auto-refresh when entering the page to catch newly approved players
   useEffect(() => {
-    const fetchUserRole = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      const cached = localStorage.getItem("diski_user_profile");
-      if (cached) setUserData(JSON.parse(cached));
-      try {
-        const data = await getUserStatus(user.uid);
-        if (data) {
-          setUserData(data);
-          localStorage.setItem("diski_user_profile", JSON.stringify(data));
-        }
-      } catch (err) {
-        console.warn("Could not refresh user role, using cache.");
-      }
-    };
-    fetchUserRole();
+    onRefresh();
   }, []);
 
   const filteredPlayers = useMemo(() => {
     return (players || []).filter((p) => {
-      const playerArea = p.area || "unknown";
+      // Handle both 'area' and 'areaId' fields for compatibility
+      const playerArea = p.area || p.areaId || "unknown";
       const matchesArea = playerArea === userArea;
 
       const matchesSearch =
@@ -86,13 +74,22 @@ export const SquadPage = ({
           <Badge bg="success" className="rounded-pill px-3 shadow-sm">
             📍 {userArea ? userArea : "Loading Area..."}
           </Badge>
+
+          <Button
+            variant="outline-dark"
+            size="sm"
+            className="rounded-pill ms-2 shadow-sm border-0 bg-white"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            {loading ? "⌛" : "🔄 Refresh"}
+          </Button>
         </div>
         <Badge bg="dark" className="p-2">
           {filteredPlayers.length} Players in {userArea || "your area"}
         </Badge>
       </div>
 
-      {/* SEARCH AND FILTERS RESTORED */}
       <Row className="justify-content-center mb-4 g-2">
         <Col xs={12} md={6}>
           <InputGroup className="shadow-sm">
@@ -127,7 +124,7 @@ export const SquadPage = ({
         </Col>
       </Row>
 
-      {loading ? (
+      {loading && players.length === 0 ? (
         <div className="text-center mt-5">
           <Spinner animation="border" variant="success" />
           <p className="mt-2 text-muted">Fetching {userArea} Squad...</p>
@@ -151,7 +148,8 @@ export const SquadPage = ({
                       player={player}
                       onRate={handleRateClick}
                       onToggleSelect={handleToggleSelect}
-                      canRate={userData?.role === "Captain"}
+                      // Use the userRole prop directly
+                      canRate={userRole === "Captain"}
                     />
                   </Col>
                 ))}

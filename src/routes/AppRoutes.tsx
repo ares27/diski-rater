@@ -11,9 +11,15 @@ interface AppRoutesProps {
   squadProps: any;
   user: any;
   userRole: any;
+  onRefresh: () => Promise<void>;
 }
 
-export const AppRoutes = ({ squadProps, user, userRole }: AppRoutesProps) => {
+export const AppRoutes = ({
+  squadProps,
+  user,
+  userRole,
+  onRefresh,
+}: AppRoutesProps) => {
   return (
     <Routes>
       {/* 1. PUBLIC LANDING PAGE */}
@@ -28,7 +34,13 @@ export const AppRoutes = ({ squadProps, user, userRole }: AppRoutesProps) => {
       {/* 4. PROTECTED SQUAD PAGE - Redirect to / instead of /login */}
       <Route
         path="/squad"
-        element={user ? <SquadPage {...squadProps} /> : <Navigate to="/" />}
+        element={
+          user ? (
+            <SquadPage {...squadProps} onRefresh={onRefresh} />
+          ) : (
+            <Navigate to="/" />
+          )
+        }
       />
 
       {/* 5. USER HOME / DASHBOARD - Redirect to / instead of /login */}
