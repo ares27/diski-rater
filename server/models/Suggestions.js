@@ -4,7 +4,7 @@ const suggestionSchema = new mongoose.Schema({
   text: { type: String, required: true },
   category: {
     type: String,
-    enum: ["Rating", "Feature", "Bug"],
+    enum: ["Rating", "Feature", "Bug", "Other"],
     default: "Feature",
   },
   status: {

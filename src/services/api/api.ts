@@ -46,18 +46,6 @@ export const updatePlayerApi = (id: string, updates: any) => {
   });
 };
 
-// Get Suggestions
-export const getSuggestions = () =>
-  fetch(`${API_URL}/api/suggestions`).then((res) => res.json());
-
-// Create Suggestions
-export const createSuggestion = (data: { text: string; category: string }) =>
-  fetch(`${API_URL}/api/suggestions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  }).then((res) => res.json());
-
 // Get User Status
 export const getUserStatus = (uid: string) =>
   fetch(`${API_URL}/api/users/${uid}`).then((res) => {
@@ -65,6 +53,33 @@ export const getUserStatus = (uid: string) =>
     if (!res.ok) throw new Error("Failed to fetch user status");
     return res.json();
   });
+
+// Get Suggestions
+export const getSuggestions = () =>
+  fetch(`${API_URL}/api/suggestions`).then((res) => res.json());
+
+// Create Suggestions
+export const createSuggestion = async (data: {
+  text: string;
+  category: string;
+}) => {
+  const res = await fetch(`${API_URL}/api/suggestions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...data,
+      // Add default status here if the backend doesn't handle it
+      status: "Pending",
+      createdAt: new Date().toISOString(),
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to create suggestion");
+  }
+  return res.json();
+};
 
 // Upvote Suggestion
 export const upvoteSuggestion = async (id: string) => {

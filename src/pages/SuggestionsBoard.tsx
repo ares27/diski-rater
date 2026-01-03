@@ -66,6 +66,8 @@ export const SuggestionsBoard = () => {
         return "warning";
       case "planned":
         return "primary";
+      case "pending":
+        return "dark";
       default:
         return "secondary";
     }
@@ -74,7 +76,6 @@ export const SuggestionsBoard = () => {
   const handleUpvote = async (id: string) => {
     if (votedItems.includes(id)) return;
 
-    // Optimistic Update: Update UI immediately
     const originalSuggestions = [...suggestions];
     setSuggestions((prev) =>
       prev.map((s) =>
@@ -100,13 +101,27 @@ export const SuggestionsBoard = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newText.trim()) return;
+
     try {
-      await createSuggestion({ text: newText, category });
+      const cachedProfile = JSON.parse(
+        localStorage.getItem("diski_user_profile") || "{}"
+      );
+      const area = cachedProfile.area || "General";
+
+      await createSuggestion({
+        text: newText,
+        category,
+        // @ts-ignore (if type is strict)
+        area: area,
+        status: "Pending",
+      });
+
       setNewText("");
       setShowModal(false);
-      loadSuggestions(); // Refresh list
-    } catch (err) {
-      alert("Error posting idea. Please check your connection.");
+      loadSuggestions();
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      alert(`Error: ${err.message || "Check connection"}`);
     }
   };
 
@@ -168,12 +183,19 @@ export const SuggestionsBoard = () => {
                     >
                       {s.category}
                     </Badge>
+                    {/* Update 1: Display the Area on the card */}
+                    {/* <small
+                      className="text-muted fw-bold"
+                      style={{ fontSize: "0.65rem" }}
+                    >
+                      📍 {s.area || "General"}
+                    </small> */}
                     <Badge
                       pill
                       bg={getStatusColor(s.status)}
                       style={{ fontSize: "0.7rem" }}
                     >
-                      {s.status || "Planned"}
+                      {s.status || "Pending"}
                     </Badge>
                   </Card.Header>
                   <Card.Body>
@@ -225,7 +247,7 @@ export const SuggestionsBoard = () => {
               >
                 <option value="Feature">✨ Feature Request</option>
                 <option value="Bug">🪲 Report a Bug</option>
-                <option value="Praise">❤️ Praise / Other</option>
+                <option value="Other">🔎 Other</option>
               </Form.Select>
             </Form.Group>
             <Form.Group className="mb-3">
