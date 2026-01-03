@@ -6,13 +6,15 @@ import {
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 import { useNavigate, Link } from "react-router-dom";
+import { registerUserApi } from "../services/api/api";
 
 export const LoginPage = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [phone, setPhone] = useState("");
-  const [diskiName, setDiskiName] = useState(""); // <--- New State
+  const [diskiName, setDiskiName] = useState("");
   const [password, setPassword] = useState("");
   const [location, setLocation] = useState("Valhalla");
+  const [position, setPosition] = useState("MID"); // Default position
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -38,21 +40,17 @@ export const LoginPage = () => {
           password
         );
 
-        const response = await fetch(`http://localhost:5000/api/users`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firebaseUid: userCredential.user.uid,
-            phoneNumber: phone,
-            diskiName: diskiName, // <--- Sent to Backend
-            email: shadowEmail,
-            areaId: location,
-            role: "Player",
-            status: "Pending",
-          }),
+        // Dynamic API call based on your .env files
+        await registerUserApi({
+          firebaseUid: userCredential.user.uid,
+          phoneNumber: phone,
+          diskiName: diskiName,
+          position: position,
+          email: shadowEmail,
+          areaId: location,
+          role: "Player",
+          status: "Pending",
         });
-
-        if (!response.ok) throw new Error("Database sync failed.");
 
         alert(`Request sent for ${diskiName}! Wait for captain approval.`);
       } else {
@@ -99,18 +97,38 @@ export const LoginPage = () => {
         )}
 
         <Form onSubmit={handleAuth}>
-          {/* DISKI NAME: Only for registration */}
           {isRegistering && (
-            <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold">Diski Nickname</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="e.g. Scara, Kasi King..."
-                value={diskiName}
-                onChange={(e) => setDiskiName(e.target.value)}
-                required
-              />
-            </Form.Group>
+            <>
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold">
+                  Diski Nickname
+                </Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="e.g. Scara, Kasi King..."
+                  value={diskiName}
+                  onChange={(e) => setDiskiName(e.target.value)}
+                  required
+                />
+              </Form.Group>
+
+              {/* NEW POSITION FIELD */}
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold">
+                  Primary Position
+                </Form.Label>
+                <Form.Select
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  required
+                >
+                  <option value="FWD">Forward (FWD)</option>
+                  <option value="MID">Midfielder (MID)</option>
+                  <option value="DEF">Defender (DEF)</option>
+                  <option value="GK">Goalkeeper (GK)</option>
+                </Form.Select>
+              </Form.Group>
+            </>
           )}
 
           <Form.Group className="mb-3">

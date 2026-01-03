@@ -7,6 +7,8 @@ import {
   Spinner,
   Badge,
 } from "react-bootstrap";
+// Import declineUser
+import { getPendingUsers, approveUser, declineUser } from "../services/api/api";
 
 export const CaptainTools = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
@@ -16,43 +18,49 @@ export const CaptainTools = () => {
     fetchPending();
   }, []);
 
-  const fetchPending = () => {
+  const fetchPending = async () => {
     setLoading(true);
-    fetch("http://localhost:5000/api/users/pending")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        setPendingUsers(Array.isArray(data) ? data : []);
-      })
-      .catch((err) => console.error("Fetch error:", err))
-      .finally(() => setLoading(false));
+    try {
+      const data = await getPendingUsers();
+      setPendingUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setPendingUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleApprove = async (userId: string) => {
-    // Simple confirmation so the captain doesn't click by mistake
     if (!window.confirm("Approve this player and add them to the squad?"))
       return;
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/users/approve/${userId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          // We leave this empty to tell the backend "Create a new profile from registration data"
-          body: JSON.stringify({ linkedPlayerId: "" }),
-        }
-      );
-
-      if (response.ok) {
-        alert("Success! Player added to the area squad.");
-        fetchPending(); // Refresh the list of pending users
-      } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.message}`);
-      }
-    } catch (err) {
+      await approveUser(userId);
+      alert("Success! Player added to the area squad.");
+      fetchPending();
+    } catch (err: any) {
       console.error("Approval error:", err);
-      alert("Server error. Please check your connection.");
+      alert(`Error: ${err.message || "Server error."}`);
+    }
+  };
+
+  // New Decline Handler
+  const handleDecline = async (userId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to decline this request? This will remove the user."
+      )
+    )
+      return;
+
+    try {
+      await declineUser(userId);
+      alert("Request declined and removed.");
+      fetchPending();
+    } catch (err: any) {
+      console.error("Decline error:", err);
+      alert(`Error: ${err.message || "Server error."}`);
     }
   };
 
@@ -85,9 +93,10 @@ export const CaptainTools = () => {
           <thead className="table-dark">
             <tr>
               <th>Diski Name</th>
+              <th>Position</th>
               <th>Phone Number</th>
               <th>Target Area</th>
-              <th>Action</th>
+              <th className="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -96,20 +105,34 @@ export const CaptainTools = () => {
                 <td className="fw-bold text-success">
                   {u.diskiName || "No Name"}
                 </td>
+                <td className="fw-bold text-success">
+                  {u.position || "No Name"}
+                </td>
                 <td>{u.phoneNumber || "No Phone"}</td>
                 <td>
                   <Badge bg="info" className="px-3 py-2 text-dark">
                     📍 {u.area || u.areaId || "General"}
                   </Badge>
                 </td>
-                <td style={{ width: "200px" }}>
-                  <Button
-                    variant="success"
-                    className="w-100 fw-bold shadow-sm"
-                    onClick={() => handleApprove(u._id)}
-                  >
-                    Approve Player
-                  </Button>
+                <td>
+                  <div className="d-flex gap-2 justify-content-center">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      className="fw-bold shadow-sm px-3"
+                      onClick={() => handleApprove(u._id)}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      className="fw-bold px-3"
+                      onClick={() => handleDecline(u._id)}
+                    >
+                      Decline
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}

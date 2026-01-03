@@ -58,18 +58,18 @@ export const getUserStatus = (uid: string) =>
 export const getSuggestions = () =>
   fetch(`${API_URL}/api/suggestions`).then((res) => res.json());
 
-// Create Suggestions
+// 3. Create Suggestions (FIXED: Corrected categories and default Pending status)
 export const createSuggestion = async (data: {
   text: string;
   category: string;
+  area: string; // Ensure area is included as discussed previously
 }) => {
   const res = await fetch(`${API_URL}/api/suggestions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ...data,
-      // Add default status here if the backend doesn't handle it
-      status: "Pending",
+      status: "Pending", // Forces "Pending" as the default state
       createdAt: new Date().toISOString(),
     }),
   });
@@ -88,5 +88,65 @@ export const upvoteSuggestion = async (id: string) => {
     method: "PATCH",
   });
   if (!res.ok) throw new Error("Failed to upvote");
+  return res.json();
+};
+
+// Get Pending Users for Captains
+export const getPendingUsers = () =>
+  fetch(`${API_URL}/api/users/pending`).then((res) => {
+    if (!res.ok) throw new Error("Failed to fetch pending requests");
+    return res.json();
+  });
+
+// 2. Approve User (FIXED: Backend usually creates Player from User document data)
+export const approveUser = async (userId: string) => {
+  // We send linkedPlayerId as empty so the backend knows to generate
+  // a NEW Player entry using the diskiName and POSITION stored in the User doc.
+  const res = await fetch(`${API_URL}/api/users/approve/${userId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ linkedPlayerId: "" }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to approve player");
+  }
+  return res.json();
+};
+
+// Decline/Delete User Request
+export const declineUser = async (userId: string) => {
+  const res = await fetch(`${API_URL}/api/users/${userId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to decline request");
+  }
+  return res.json();
+};
+
+// 1. Register User (FIXED: Ensure position is handled in the spreading)
+export const registerUserApi = async (userData: any) => {
+  const res = await fetch(`${API_URL}/api/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      firebaseUid: userData.firebaseUid,
+      phoneNumber: userData.phoneNumber,
+      diskiName: userData.diskiName,
+      email: userData.email,
+      areaId: userData.areaId,
+      role: userData.role || "Player",
+      status: userData.status || "Pending",
+      position: userData.position, // <--- Explicitly sending this to the User collection
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Registration failed");
+  }
   return res.json();
 };

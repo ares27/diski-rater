@@ -9,7 +9,11 @@ import {
   Button,
 } from "react-bootstrap";
 import { auth } from "../firebase/config";
-import { getUserStatus, getPlayers } from "../services/api/api";
+import {
+  getUserStatus,
+  getPlayers,
+  getPendingUsers,
+} from "../services/api/api";
 import PlayerCard from "../components/PlayerCard";
 import { useNavigate } from "react-router-dom";
 
@@ -75,7 +79,11 @@ export const UserDashboard = () => {
       try {
         const data = await getUserStatus(user.uid);
         if (!data) {
-          setUserData({ status: "Unregistered" });
+          setUserData({
+            status: "Pending",
+            role: "Player",
+            diskiName: "New Baller",
+          });
           return;
         }
 
@@ -93,12 +101,9 @@ export const UserDashboard = () => {
 
         if (data.role === "Captain") {
           try {
-            // const res = await fetch("http://localhost:5000/api/users/pending");
-            const res = await fetch(`${API_BASE_URL}/api/users/pending`);
-            if (!res.ok) throw new Error("Network response was not ok");
+            // FIX: Use the central API function instead of fetch()
+            const pending = await getPendingUsers();
 
-            const pending = await res.json();
-            // Filter pending players to ONLY show the count for this Captain's area
             const areaSpecificPending = pending.filter(
               (u: any) => (u.area || u.areaId) === (data.area || data.areaId)
             );
@@ -116,7 +121,7 @@ export const UserDashboard = () => {
         }
       } catch (err) {
         console.error("Dashboard fetch failed, using offline data.");
-        if (!cachedProfile) setUserData({ status: "Error" });
+        if (!cachedProfile) setUserData({ status: "Pending", role: "Player" });
       } finally {
         setLoading(false);
       }

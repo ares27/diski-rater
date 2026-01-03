@@ -102,8 +102,16 @@ app.post("/api/suggestions", async (req, res) => {
 app.post("/api/users", async (req, res) => {
   console.log("📥 Received request body:", req.body); // Check if data arrives
   try {
-    const { firebaseUid, phoneNumber, diskiName, email, areaId, role, status } =
-      req.body;
+    const {
+      firebaseUid,
+      phoneNumber,
+      diskiName,
+      position,
+      email,
+      areaId,
+      role,
+      status,
+    } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ firebaseUid });
@@ -114,6 +122,7 @@ app.post("/api/users", async (req, res) => {
       firebaseUid,
       phoneNumber,
       diskiName,
+      position,
       email,
       areaId,
       role: role || "Player",
@@ -169,7 +178,7 @@ app.patch("/api/users/approve/:id", async (req, res) => {
         // FIX: Mapping the user's area field to the player's area field
         // We use || to handle cases where it might be stored as areaId or area
         area: userToApprove.area || userToApprove.areaId,
-        position: "SUB",
+        position: userToApprove.position,
         isSelected: false,
         ratings: {
           pace: 50,
