@@ -73,6 +73,8 @@ function App() {
           setUserArea(parsed.area || parsed.areaId); // Support both just in case
         }
 
+        fetchPlayers();
+
         try {
           // Step B: Try to get fresh status from MongoDB
           const profile = await getUserStatus(firebaseUser.uid);
@@ -92,6 +94,7 @@ function App() {
       } else {
         setUserRole("");
         setUserArea(""); // Clear area on logout
+        setPlayers([]);
         localStorage.removeItem("diski_user_role");
         localStorage.removeItem("diski_user_profile");
       }
@@ -151,11 +154,6 @@ function App() {
       setLoading(false);
     }
   };
-
-  // 2. Fetch Players with Offline Support
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
 
   // Listen for Browser Online/Offline status
   useEffect(() => {
