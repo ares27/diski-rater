@@ -68,7 +68,7 @@ export const SquadPage = ({
 
   return (
     <Container className="pb-5">
-      <div className="d-flex justify-content-between align-items-center mt-3 mb-4">
+      <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-4 gap-3">
         <div className="d-flex align-items-center gap-2">
           <h2 className="fw-bold mb-0">Squad Selection</h2>
           <Badge bg="success" className="rounded-pill px-3 shadow-sm">
