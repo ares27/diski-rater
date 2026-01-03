@@ -68,25 +68,32 @@ export const SquadPage = ({
 
   return (
     <Container className="pb-5">
+      {/* Header Section: Now wraps on mobile */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-4 gap-3">
-        <div className="d-flex align-items-center gap-2">
+        {/* Title and Area Badge Group */}
+        <div className="d-flex flex-wrap align-items-center gap-2">
           <h2 className="fw-bold mb-0">Squad Selection</h2>
-          <Badge bg="success" className="rounded-pill px-3 shadow-sm">
-            📍 {userArea ? userArea : "Loading Area..."}
-          </Badge>
+          <div className="d-flex align-items-center gap-2">
+            <Badge bg="success" className="rounded-pill px-3 shadow-sm">
+              📍 {userArea ? userArea : "Loading..."}
+            </Badge>
 
-          <Button
-            variant="outline-dark"
-            size="sm"
-            className="rounded-pill ms-2 shadow-sm border-0 bg-white"
-            onClick={onRefresh}
-            disabled={loading}
-          >
-            {loading ? "⌛" : "🔄 Refresh"}
-          </Button>
+            <Button
+              variant="outline-dark"
+              size="sm"
+              className="rounded-pill shadow-sm border-0 bg-white d-flex align-items-center gap-1"
+              onClick={onRefresh}
+              disabled={loading}
+            >
+              {loading ? <Spinner size="sm" animation="border" /> : "🔄"}
+              <span className="small fw-bold">Refresh</span>
+            </Button>
+          </div>
         </div>
-        <Badge bg="dark" className="p-2">
-          {filteredPlayers.length} Players in {userArea || "your area"}
+
+        {/* Player Count Badge: Moves to its own line if needed */}
+        <Badge bg="dark" className="p-2 shadow-sm">
+          {filteredPlayers.length} Players in {userArea || "Area"}
         </Badge>
       </div>
 
