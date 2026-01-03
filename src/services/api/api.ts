@@ -1,20 +1,25 @@
 // This ensures we always have a valid, absolute URL
 const getBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  const isDev = import.meta.env.DEV; // Vite automatically sets this
+  let envUrl = import.meta.env.VITE_API_URL;
 
-  // If we have an ENV URL, use it (works for both dev and prod)
-  if (envUrl) {
-    return envUrl.replace(/\/$/, "");
+  // 1. If the URL exists but is missing https://, prepend it
+  if (envUrl && !envUrl.startsWith("http")) {
+    envUrl = `https://${envUrl}`;
   }
 
-  // If no ENV is found, only use localhost if we are actually in DEV mode
-  if (isDev) {
-    return "http://localhost:5000";
+  // 2. Remove trailing slashes
+  const sanitizedUrl = envUrl ? envUrl.replace(/\/$/, "") : "";
+
+  // 3. Validation Logic
+  if (import.meta.env.PROD) {
+    // On the live site, if envUrl is broken/relative, return the hardcoded prod URL
+    return sanitizedUrl.startsWith("http")
+      ? sanitizedUrl
+      : "https://diski-rater-api.synczen.co.za";
   }
 
-  // LAST RESORT: Hardcode the production URL so the live site never hits localhost
-  return "https://diski-rater-api.synczen.co.za";
+  // 4. Fallback for Local Development
+  return sanitizedUrl || "http://localhost:5000";
 };
 
 const API_URL = getBaseUrl();
