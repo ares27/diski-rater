@@ -40,7 +40,7 @@ const PlayerCard = ({
       <Card.Body>
         <div className="d-flex justify-content-between align-items-center mb-2">
           {/* Main Title now shows Diski Name */}
-          <Card.Title className="mb-0 fw-bold text-dark">
+          <Card.Title className="mb-0 fw-bold text-dark align-items-center">
             {displayName}
           </Card.Title>
 

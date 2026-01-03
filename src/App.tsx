@@ -103,23 +103,49 @@ function App() {
   // Move fetchPlayers to its own function so it can be reused
   const fetchPlayers = async () => {
     const cachedData = localStorage.getItem("diski_players_cache");
+    let localPlayers: Player[] = [];
+
+    // 1. Immediate UI update from Cache
     if (cachedData) {
       try {
-        setPlayers(JSON.parse(cachedData));
-        setIsSynced(false);
-        setLoading(false);
+        localPlayers = JSON.parse(cachedData);
+        // Only set loading false if we actually have data to show
+        if (localPlayers.length > 0) {
+          setPlayers(localPlayers);
+          setLoading(false);
+        }
       } catch (e) {
         console.error("Failed to parse cache", e);
       }
     }
 
     try {
-      const data = await getPlayers();
-      setPlayers(data);
-      localStorage.setItem("diski_players_cache", JSON.stringify(data));
+      // 2. Background Fetch from Server
+      const serverData = await getPlayers();
+
+      // 3. MERGE LOGIC: Prioritize local 'isSelected' state
+      const mergedData = serverData.map((serverPlayer: Player) => {
+        const serverId = serverPlayer._id || serverPlayer.id;
+
+        // Look for this player in our local session
+        const localMatch = localPlayers.find(
+          (lp) => (lp._id || lp.id) === serverId
+        );
+
+        return {
+          ...serverPlayer,
+          // If they exist locally, keep their 'isSelected' status.
+          // Otherwise, default to false (Bench).
+          isSelected: localMatch ? localMatch.isSelected : false,
+        };
+      });
+
+      // 4. Update State and Sync Cache
+      setPlayers(mergedData);
+      localStorage.setItem("diski_players_cache", JSON.stringify(mergedData));
       setIsSynced(true);
     } catch (error) {
-      console.error("Database fetch failed", error);
+      console.error("Database fetch failed, continuing with local data", error);
       setIsSynced(false);
     } finally {
       setLoading(false);
@@ -193,31 +219,49 @@ function App() {
 
   const handleToggleSelect = async (playerId: string) => {
     setIsSynced(false); // Optimistically start sync
+
     const player = players.find((p) => p._id === playerId || p.id === playerId);
     if (!player) return;
 
     const newStatus = !player.isSelected;
-    setPlayers((prev) =>
-      prev.map((p) =>
+
+    // 1. Update State and Cache simultaneously (Optimistic UI)
+    setPlayers((prev) => {
+      const updatedPlayers = prev.map((p) =>
         p._id === playerId || p.id === playerId
           ? { ...p, isSelected: newStatus }
           : p
-      )
-    );
+      );
+
+      // Update local storage so the session survives navigation/refresh
+      localStorage.setItem(
+        "diski_players_cache",
+        JSON.stringify(updatedPlayers)
+      );
+
+      return updatedPlayers;
+    });
 
     try {
+      // 2. Persist to DB
       await updatePlayerApi(player._id || player.id, { isSelected: newStatus });
-      setIsSynced(true); // Successfully saved to DB
+      setIsSynced(true);
     } catch (error) {
-      setIsSynced(false); // Stay orange, it only lives on the device for now
-      // Revert on error
-      setPlayers((prev) =>
-        prev.map((p) =>
+      console.error("Failed to sync selection to DB:", error);
+      setIsSynced(false);
+
+      // 3. Rollback State AND Cache on failure
+      setPlayers((prev) => {
+        const rolledBack = prev.map((p) =>
           p._id === playerId || p.id === playerId
             ? { ...p, isSelected: !newStatus }
             : p
-        )
-      );
+        );
+        localStorage.setItem("diski_players_cache", JSON.stringify(rolledBack));
+        return rolledBack;
+      });
+
+      alert("Connection lost. Selection saved to device but not to cloud.");
     }
   };
 
@@ -226,8 +270,32 @@ function App() {
     setShowModal(true);
   };
 
-  const handleClearSelections = () => {
-    setPlayers((prev) => prev.map((p) => ({ ...p, isSelected: false })));
+  const handleClearSelections = async () => {
+    // 1. Update local UI & Cache immediately for a "Clean Slate"
+    const clearedPlayers = players.map((p) => ({ ...p, isSelected: false }));
+    setPlayers(clearedPlayers);
+    localStorage.setItem("diski_players_cache", JSON.stringify(clearedPlayers));
+
+    setIsSynced(false);
+
+    try {
+      // 2. Sync with Database
+      // We filter for players who WERE selected and set them to false in the DB
+      const playersToReset = players.filter((p) => p.isSelected);
+
+      await Promise.all(
+        playersToReset.map((p) =>
+          updatePlayerApi(p._id || p.id, { isSelected: false })
+        )
+      );
+
+      setIsSynced(true);
+    } catch (error) {
+      console.error("Failed to clear selections in the cloud:", error);
+      setIsSynced(false);
+      // We don't necessarily want to "rollback" a clear action because
+      // the user intent was to start over. We just leave the sync indicator orange.
+    }
   };
 
   const handleUpdateRating = async (
@@ -281,7 +349,9 @@ function App() {
     loading,
     players,
     userArea,
-    selectedCount: players.filter((p) => p.isSelected).length,
+    selectedCount: players.filter(
+      (p) => p.isSelected && (p.area === userArea || p.areaId === userArea)
+    ).length,
     handleRateClick,
     handleToggleSelect,
     handleClearSelections,
@@ -346,9 +416,11 @@ function App() {
                 <Nav.Link as={Link} to="/home" className="text-white px-3">
                   Dashboard
                 </Nav.Link>
+                {/*
                 <Nav.Link as={Link} to="/squad" className="text-white px-3">
                   Squad
                 </Nav.Link>
+                */}
 
                 {/* Separator for desktop, hidden on mobile */}
                 <div

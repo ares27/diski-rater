@@ -9,6 +9,9 @@ lerna-debug.log*
 
 # Environment Variables (CRITICAL: Never upload your DB passwords!)
 .env
+.env.local
+.env.development
+.env.production
 
 node_modules
 dist

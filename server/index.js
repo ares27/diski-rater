@@ -12,7 +12,8 @@ const allowedOrigins = [
   "https://diski-rater.apps.synczen.co.za",
   "https://diski-rater-app.synczen.co.za", // Keep this until propagation is finished
   "https://diski-rater.onrender.com", // Keep this until propagation is finished
-  "http://localhost:3000", // Keep this for local development (if applicable)
+  // "http://localhost:3000", // Keep this for local development (if applicable)
+  "http://localhost:5173", // Keep this for local development (if applicable)
 ];
 
 app.use(

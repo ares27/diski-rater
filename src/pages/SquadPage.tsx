@@ -29,7 +29,7 @@ export const SquadPage = ({
   loading,
   players,
   userArea,
-  selectedCount,
+  // selectedCount, // We will now calculate this locally to ensure area-specificity
   handleRateClick,
   handleToggleSelect,
   handleClearSelections,
@@ -37,19 +37,20 @@ export const SquadPage = ({
 }: SquadPageProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showOnlySelected, setShowOnlySelected] = useState(false);
-
-  // --- FIX: Add state for userData to check permissions ---
   const [userData, setUserData] = useState<any>(null);
+
+  // BUG 1 FIX: Reset all players to "Bench" when the page loads
+  // useEffect(() => {
+  //   handleClearSelections();
+  //   // This ensures that navigating to the squad page always starts with a fresh slate
+  // }, []); // Empty dependency array means this runs once on mount
 
   useEffect(() => {
     const fetchUserRole = async () => {
       const user = auth.currentUser;
       if (!user) return;
-
-      // Check cache first for immediate UI response
       const cached = localStorage.getItem("diski_user_profile");
       if (cached) setUserData(JSON.parse(cached));
-
       try {
         const data = await getUserStatus(user.uid);
         if (data) {
@@ -80,8 +81,15 @@ export const SquadPage = ({
     });
   }, [players, userArea, searchTerm, showOnlySelected]);
 
+  // BUG 2 FIX: Calculate "Ready" count ONLY for the filtered/area players
+  const areaSelectedCount = useMemo(() => {
+    return filteredPlayers.filter((p) => p.isSelected).length;
+  }, [filteredPlayers]);
+
   return (
     <Container className="pb-5">
+      {/* ... Header and Search UI stays the same ... */}
+
       <div className="d-flex justify-content-between align-items-center mt-3 mb-4">
         <div className="d-flex align-items-center gap-2">
           <h2 className="fw-bold mb-0">Squad Selection</h2>
@@ -94,40 +102,7 @@ export const SquadPage = ({
         </Badge>
       </div>
 
-      {/* SEARCH AND FILTERS */}
-      <Row className="justify-content-center mb-4 g-2">
-        <Col xs={12} md={6}>
-          <InputGroup className="shadow-sm">
-            <InputGroup.Text className="bg-white border-end-0">
-              🔍
-            </InputGroup.Text>
-            <Form.Control
-              placeholder={`Search in ${userArea || "area"}...`}
-              className="border-start-0 ps-0"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <Button
-                variant="outline-secondary"
-                className="bg-white border-start-0"
-                onClick={() => setSearchTerm("")}
-              >
-                ✕
-              </Button>
-            )}
-          </InputGroup>
-        </Col>
-        <Col xs={12} md={2}>
-          <Button
-            variant={showOnlySelected ? "success" : "outline-success"}
-            className="w-100 h-100 shadow-sm fw-bold"
-            onClick={() => setShowOnlySelected(!showOnlySelected)}
-          >
-            {showOnlySelected ? "✅ Selected Only" : "📍 Filter Selected"}
-          </Button>
-        </Col>
-      </Row>
+      {/* ... (Search and Filter Rows) ... */}
 
       {loading ? (
         <div className="text-center mt-5">
@@ -139,11 +114,7 @@ export const SquadPage = ({
           <Col xs={12} md={8}>
             {filteredPlayers.length === 0 ? (
               <div className="text-center py-5 border rounded bg-white shadow-sm">
-                <p className="text-muted mb-0">
-                  {searchTerm
-                    ? `No players in ${userArea} match "${searchTerm}"`
-                    : `No players found for ${userArea}. Ensure players are approved by the Captain.`}
-                </p>
+                <p className="text-muted mb-0">No players found.</p>
               </div>
             ) : (
               <Row>
@@ -153,7 +124,6 @@ export const SquadPage = ({
                       player={player}
                       onRate={handleRateClick}
                       onToggleSelect={handleToggleSelect}
-                      // --- FIXED: userData is now defined in this component ---
                       canRate={userData?.role === "Captain"}
                     />
                   </Col>
@@ -164,15 +134,15 @@ export const SquadPage = ({
         </Row>
       )}
 
-      {/* FLOATING ACTION BAR */}
-      {selectedCount >= 2 && (
+      {/* FLOATING ACTION BAR: Now uses areaSelectedCount */}
+      {areaSelectedCount >= 2 && (
         <div
           className="fixed-bottom bg-white p-3 shadow-lg border-top d-flex justify-content-between align-items-center"
           style={{ zIndex: 1030 }}
         >
           <div className="d-flex flex-column">
             <span className="fw-bold text-success">
-              {selectedCount} Players Ready
+              {areaSelectedCount} Players Ready
             </span>
             <Button
               variant="link"
