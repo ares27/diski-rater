@@ -110,13 +110,16 @@ export const getPendingUsers = () =>
   });
 
 // 2. Approve User (FIXED: Backend usually creates Player from User document data)
-export const approveUser = async (userId: string) => {
-  // We send linkedPlayerId as empty so the backend knows to generate
-  // a NEW Player entry using the diskiName and POSITION stored in the User doc.
+export const approveUser = async (userId: string, role: string = "Player") => {
+  // We send the role along with linkedPlayerId
+  // The backend will use this role when creating the Player document
   const res = await fetch(`${API_URL}/api/users/approve/${userId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ linkedPlayerId: "" }),
+    body: JSON.stringify({
+      linkedPlayerId: "",
+      role: role, // <--- This ensures the role is saved to the new Player entry
+    }),
   });
 
   if (!res.ok) {

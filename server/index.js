@@ -16,6 +16,7 @@ const allowedOrigins = [
   "http://localhost:5173", // Keep this for local development (if applicable)
 ];
 
+// CORS config
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -179,6 +180,7 @@ app.patch("/api/users/approve/:id", async (req, res) => {
         // We use || to handle cases where it might be stored as areaId or area
         area: userToApprove.area || userToApprove.areaId,
         position: userToApprove.position,
+        role: userToApprove.role,
         isSelected: false,
         ratings: {
           pace: 50,
@@ -206,6 +208,7 @@ app.patch("/api/users/approve/:id", async (req, res) => {
   }
 });
 
+// Upvote suggestions
 app.patch("/api/suggestions/:id/upvote", async (req, res) => {
   try {
     const suggestion = await Suggestion.findByIdAndUpdate(

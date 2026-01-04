@@ -21,7 +21,7 @@ interface SquadPageProps {
   handleRateClick: (player: Player) => void;
   handleToggleSelect: (id: string) => void;
   handleClearSelections: () => void;
-  generateTeams: () => void;
+  generateTeams: (mode?: "balanced" | "random") => void;
   onRefresh: () => void;
 }
 
@@ -64,6 +64,18 @@ export const SquadPage = ({
 
   const areaSelectedCount = useMemo(() => {
     return filteredPlayers.filter((p) => p.isSelected).length;
+  }, [filteredPlayers]);
+
+  // 1. Calculate the highest overall score to determine the MVP
+  const maxOverall = useMemo(() => {
+    if (filteredPlayers.length === 0) return 0;
+    return Math.max(
+      ...filteredPlayers.map((p) => {
+        const stats = Object.values(p.ratings || {});
+        if (stats.length === 0) return 0;
+        return Math.round(stats.reduce((a, b) => a + b, 0) / stats.length);
+      })
+    );
   }, [filteredPlayers]);
 
   return (
@@ -149,17 +161,30 @@ export const SquadPage = ({
               </div>
             ) : (
               <Row>
-                {filteredPlayers.map((player) => (
-                  <Col key={player._id || player.id} xs={12} className="mb-3">
-                    <PlayerCard
-                      player={player}
-                      onRate={handleRateClick}
-                      onToggleSelect={handleToggleSelect}
-                      // Use the userRole prop directly
-                      canRate={userRole === "Captain"}
-                    />
-                  </Col>
-                ))}
+                {filteredPlayers.map((player) => {
+                  const stats = Object.values(player.ratings || {});
+                  const playerOverall =
+                    stats.length > 0
+                      ? Math.round(
+                          stats.reduce((a, b) => a + b, 0) / stats.length
+                        )
+                      : 0;
+                  return (
+                    <Col key={player._id || player.id} xs={12} className="mb-3">
+                      <PlayerCard
+                        player={player}
+                        onRate={handleRateClick}
+                        onToggleSelect={handleToggleSelect}
+                        // Added a console log here temporarily to debug
+                        // console.log("Current User Role:", userRole);
+                        canRate={userRole === "Captain"}
+                        isMVP={
+                          playerOverall === maxOverall && playerOverall > 0
+                        } // Pass the prop here
+                      />
+                    </Col>
+                  );
+                })}
               </Row>
             )}
           </Col>
@@ -184,13 +209,15 @@ export const SquadPage = ({
               Clear Selections
             </Button>
           </div>
+
           <Button
             variant="success"
             size="lg"
-            className="px-5 shadow fw-bold"
-            onClick={generateTeams}
+            className="px-5 shadow fw-bold rounded-pill"
+            // This triggers the App.tsx function which sets setShowMatchModal(true)
+            onClick={() => generateTeams("balanced")}
           >
-            GENERATE TEAMS ⚽
+            GENERATE MATCH ⚽
           </Button>
         </div>
       )}

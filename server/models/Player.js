@@ -5,6 +5,7 @@ const playerSchema = new mongoose.Schema({
   diskiName: { type: String, required: true }, // Added for the nickname
   area: { type: String, required: true },
   position: String,
+  role: String,
   isSelected: { type: Boolean, default: false },
   ratings: {
     pace: { type: Number, default: 50 },

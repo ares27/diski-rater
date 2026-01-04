@@ -155,6 +155,27 @@ function App() {
     }
   };
 
+  const refreshUserStatus = async () => {
+    if (!user) return;
+
+    try {
+      const profile = await getUserStatus(user.uid);
+      if (profile) {
+        setUserRole(profile.role);
+        const currentArea = profile.area || profile.areaId;
+        setUserArea(currentArea);
+
+        // Update cache so it persists on next reload
+        localStorage.setItem("diski_user_role", profile.role);
+        localStorage.setItem("diski_user_profile", JSON.stringify(profile));
+
+        console.log("User profile refreshed:", profile.role);
+      }
+    } catch (err) {
+      console.error("Failed to refresh user status:", err);
+    }
+  };
+
   // Listen for Browser Online/Offline status
   useEffect(() => {
     const handleOnline = () => {
@@ -313,24 +334,45 @@ function App() {
     }
   };
 
-  const generateTeams = () => {
-    const activePlayers = players.filter((p) => p.isSelected);
-    const sorted = [...activePlayers].sort((a, b) => {
-      const scoreA = Object.values(a.ratings).reduce((sum, r) => sum + r, 0);
-      const scoreB = Object.values(b.ratings).reduce((sum, r) => sum + r, 0);
-      return scoreB - scoreA;
-    });
+  // Inside App.tsx, update generateTeams to return the result:
+  const generateTeams = (mode: "balanced" | "random" = "balanced") => {
+    const activePlayers = players.filter(
+      (p) => p.isSelected && (p.area === userArea || p.areaId === userArea)
+    );
+
+    if (activePlayers.length < 2) return { t1: [], t2: [] };
+
+    let pool = [...activePlayers];
+    if (mode === "balanced") {
+      pool.sort((a, b) => {
+        const getAvg = (p: Player) =>
+          Object.values(p.ratings).reduce((sum, r) => sum + r, 0) /
+          Math.max(Object.values(p.ratings).length, 1);
+        return getAvg(b) - getAvg(a);
+      });
+    } else {
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+    }
 
     const t1: Player[] = [];
     const t2: Player[] = [];
-    sorted.forEach((player, index) => {
-      if ([0, 3].includes(index % 4)) t1.push(player);
-      else t2.push(player);
+    pool.forEach((player, index) => {
+      const setIndex = Math.floor(index / 2);
+      if (setIndex % 2 === 0) {
+        index % 2 === 0 ? t1.push(player) : t2.push(player);
+      } else {
+        index % 2 === 0 ? t2.push(player) : t1.push(player);
+      }
     });
 
+    // Update state for the Modal to display
     setTeam1(t1);
     setTeam2(t2);
     setShowMatchModal(true);
+    return { t1, t2 };
   };
 
   const handleLogout = async () => {
@@ -347,6 +389,8 @@ function App() {
     loading,
     players,
     userArea,
+    userRole,
+    refreshUserStatus,
     selectedCount: players.filter(
       (p) => p.isSelected && (p.area === userArea || p.areaId === userArea)
     ).length,
@@ -526,6 +570,7 @@ function App() {
         onHide={() => setShowMatchModal(false)}
         team1={team1}
         team2={team2}
+        onRegenerate={generateTeams} // Add this prop
       />
       <RatingModal
         show={showModal}

@@ -6,23 +6,42 @@ import {
   Alert,
   Spinner,
   Badge,
+  Form,
 } from "react-bootstrap";
-// Import declineUser
 import { getPendingUsers, approveUser, declineUser } from "../services/api/api";
 
-export const CaptainTools = () => {
+// Accept squadProps as a prop to access refreshUserStatus
+export const CaptainTools = ({ squadProps }: any) => {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>(
+    {}
+  );
+
+  // Destructure the refresh function from squadProps
+  const { refreshUserStatus } = squadProps || {};
 
   useEffect(() => {
     fetchPending();
   }, []);
 
+  const handleRoleChange = (userId: string, role: string) => {
+    setSelectedRoles((prev) => ({ ...prev, [userId]: role }));
+  };
+
   const fetchPending = async () => {
     setLoading(true);
     try {
       const data = await getPendingUsers();
-      setPendingUsers(Array.isArray(data) ? data : []);
+      const playersArray = Array.isArray(data) ? data : [];
+      setPendingUsers(playersArray);
+
+      // Initialize roles: default everyone to "Player"
+      const initialRoles: Record<string, string> = {};
+      playersArray.forEach((u: any) => {
+        initialRoles[u._id] = "Player";
+      });
+      setSelectedRoles(initialRoles);
     } catch (err) {
       console.error("Fetch error:", err);
       setPendingUsers([]);
@@ -32,12 +51,27 @@ export const CaptainTools = () => {
   };
 
   const handleApprove = async (userId: string) => {
-    if (!window.confirm("Approve this player and add them to the squad?"))
+    const role = selectedRoles[userId] || "Player";
+
+    if (
+      !window.confirm(
+        `Approve this player as a "${role}" and add them to the squad?`
+      )
+    )
       return;
 
     try {
-      await approveUser(userId);
-      alert("Success! Player added to the area squad.");
+      // 1. Send approval to API
+      await approveUser(userId, role);
+
+      // 2. Trigger the global refresh from App.tsx
+      // This ensures if the Captain approved themselves or needs new permissions,
+      // the App state updates immediately without a logout.
+      if (refreshUserStatus) {
+        await refreshUserStatus();
+      }
+
+      alert(`Success! Player added to the squad as ${role}.`);
       fetchPending();
     } catch (err: any) {
       console.error("Approval error:", err);
@@ -45,18 +79,13 @@ export const CaptainTools = () => {
     }
   };
 
-  // New Decline Handler
   const handleDecline = async (userId: string) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to decline this request? This will remove the user."
-      )
-    )
+    if (!window.confirm("Are you sure you want to decline this request?"))
       return;
 
     try {
       await declineUser(userId);
-      alert("Request declined and removed.");
+      alert("Request declined.");
       fetchPending();
     } catch (err: any) {
       console.error("Decline error:", err);
@@ -94,8 +123,8 @@ export const CaptainTools = () => {
             <tr>
               <th>Diski Name</th>
               <th>Position</th>
-              <th>Phone Number</th>
               <th>Target Area</th>
+              <th>Assign Role</th>
               <th className="text-center">Actions</th>
             </tr>
           </thead>
@@ -105,14 +134,23 @@ export const CaptainTools = () => {
                 <td className="fw-bold text-success">
                   {u.diskiName || "No Name"}
                 </td>
-                <td className="fw-bold text-success">
-                  {u.position || "No Name"}
-                </td>
-                <td>{u.phoneNumber || "No Phone"}</td>
+                <td className="fw-bold">{u.position || "N/A"}</td>
                 <td>
                   <Badge bg="info" className="px-3 py-2 text-dark">
                     📍 {u.area || u.areaId || "General"}
                   </Badge>
+                </td>
+                <td>
+                  <Form.Select
+                    size="sm"
+                    className="border-success fw-bold"
+                    style={{ maxWidth: "130px" }}
+                    value={selectedRoles[u._id] || "Player"}
+                    onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                  >
+                    <option value="Player">Player</option>
+                    <option value="Captain">Captain</option>
+                  </Form.Select>
                 </td>
                 <td>
                   <div className="d-flex gap-2 justify-content-center">
