@@ -14,23 +14,20 @@ import {
   getPlayers,
   getPendingUsers,
 } from "../services/api/api";
-import PlayerCard from "../components/PlayerCard";
+import { StatHero } from "../components/StatHero";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-// --- ADDITION 1: THE INVESTIGATION LOGIC ---
-// This lives outside the component so it doesn't re-run on every render
 const getScoutReport = (ratings: any) => {
   if (!ratings)
     return {
       archetype: "Prospect",
       analysis: "Waiting for your first match data...",
+      overall: 0,
     };
 
   const { pace, technical, physical, reliability } = ratings;
-  const max = Math.max(pace, technical, physical, reliability);
   const avg = (pace + technical + physical + reliability) / 4;
+  const max = Math.max(pace, technical, physical, reliability);
 
   let archetype = "All-Rounder";
   let analysis = "You provide a solid balance to any squad.";
@@ -46,10 +43,8 @@ const getScoutReport = (ratings: any) => {
     analysis = "You dominate the physical duels in the middle of the park.";
   } else if (max === reliability && reliability > 70) {
     archetype = "The Engine";
-    analysis = "Your work rate ensures the team stays solid for 90 minutes.";
+    analysis = "Your work rate ensures the team stays solid.";
   }
-
-  if (avg < 55) analysis = "Focus on training to boost your core attributes.";
 
   return { archetype, analysis, overall: Math.round(avg) };
 };
@@ -68,71 +63,44 @@ export const UserDashboard = () => {
 
       const cachedProfile = localStorage.getItem("diski_user_profile");
       const cachedStats = localStorage.getItem("diski_my_stats");
-      const cachedPending = localStorage.getItem("diski_pending_count");
-
       if (cachedProfile) setUserData(JSON.parse(cachedProfile));
       if (cachedStats) setPlayerStats(JSON.parse(cachedStats));
-      if (cachedPending) setPendingCount(parseInt(cachedPending));
-
       if (cachedProfile) setLoading(false);
 
       try {
         const data = await getUserStatus(user.uid);
-        if (!data) {
-          setUserData({
-            status: "Pending",
-            role: "Player",
-            diskiName: "New Baller",
-          });
-          return;
-        }
+        if (data) {
+          setUserData(data);
+          localStorage.setItem("diski_user_profile", JSON.stringify(data));
 
-        setUserData(data);
-        localStorage.setItem("diski_user_profile", JSON.stringify(data));
-
-        if (data.linkedPlayerId) {
-          const allPlayers = await getPlayers();
-          const me = allPlayers.find((p: any) => p._id === data.linkedPlayerId);
-          if (me) {
-            setPlayerStats(me);
-            localStorage.setItem("diski_my_stats", JSON.stringify(me));
+          if (data.linkedPlayerId) {
+            const allPlayers = await getPlayers();
+            const me = allPlayers.find(
+              (p: any) => p._id === data.linkedPlayerId
+            );
+            if (me) {
+              setPlayerStats(me);
+              localStorage.setItem("diski_my_stats", JSON.stringify(me));
+            }
           }
-        }
 
-        if (data.role === "Captain") {
-          try {
-            // FIX: Use the central API function instead of fetch()
+          if (data.role === "Captain") {
             const pending = await getPendingUsers();
-
-            const areaSpecificPending = pending.filter(
+            const areaSpecific = pending.filter(
               (u: any) => (u.area || u.areaId) === (data.area || data.areaId)
             );
-            setPendingCount(areaSpecificPending.length);
-            localStorage.setItem(
-              "diski_pending_count",
-              areaSpecificPending.length.toString()
-            );
-          } catch (e) {
-            console.warn("Could not fetch pending count, using cache.");
-            console.error(
-              "Silent fail on pending count - likely not a captain or network issue."
-            );
+            setPendingCount(areaSpecific.length);
           }
         }
       } catch (err) {
-        console.error("Dashboard fetch failed, using offline data.");
-        if (!cachedProfile) setUserData({ status: "Pending", role: "Player" });
+        console.error("Fetch failed", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
   }, []);
 
-  // --- ADDITION 2: RUN THE INVESTIGATION ---
-  // Helper for area display
-  // const displayArea = userData?.area || userData?.areaId || "General";
   const report = getScoutReport(playerStats?.ratings);
   const displayArea = userData?.area || userData?.areaId || "General";
 
@@ -140,61 +108,79 @@ export const UserDashboard = () => {
     return (
       <div className="text-center mt-5">
         <Spinner animation="border" variant="success" />
-        <p className="mt-2 text-muted">Accessing Dashboard...</p>
+        <p className="mt-2 text-muted">Loading Command Centre...</p>
       </div>
     );
 
   return (
     <Container className="py-4">
-      {/* CAPTAIN'S PRIVILEGED SECTION */}
+      {/* 1. CAPTAIN'S PRIVILEGED SECTION (RESTORED & IMPROVED) */}
       {userData?.role === "Captain" && (
         <Row className="mb-4">
           <Col>
-            <Card className="border-success bg-light shadow-sm">
-              <Card.Body className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="mb-0 fw-bold text-dark">
-                    Captain's Command Centre:{" "}
-                    <span className="text-success">{displayArea}</span>
-                  </h6>
-                  <small className="text-muted">
-                    {pendingCount > 0
-                      ? `There are ${pendingCount} new players in ${displayArea} awaiting approval.`
-                      : `All caught up in ${displayArea}!`}
-                  </small>
+            <Card className="border-0 shadow-sm bg-dark text-white rounded-4 overflow-hidden">
+              <Card.Body className="p-4">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h5 className="fw-bold mb-0 text-success">
+                      Captain's Command Centre
+                    </h5>
+                    <small className="opacity-75">
+                      Manage {displayArea} Squad & Approvals
+                    </small>
+                  </div>
+                  <Badge bg="success" className="rounded-pill px-3 py-2">
+                    Active Session
+                  </Badge>
                 </div>
-                <Button
-                  variant="success"
-                  size="sm"
-                  className="fw-bold px-3"
-                  onClick={() => navigate("/admin")}
-                >
-                  Approvals{" "}
-                  {pendingCount > 0 && (
-                    <Badge bg="danger" className="ms-1">
-                      {pendingCount}
-                    </Badge>
-                  )}
-                </Button>
+                <Row className="g-2">
+                  <Col xs={12} md={6}>
+                    <Button
+                      variant="outline-light"
+                      className="w-100 fw-bold border-2 py-2 d-flex align-items-center justify-content-center gap-2"
+                      onClick={() => navigate("/admin")}
+                    >
+                      🛡️ Player Approvals
+                      {pendingCount > 0 && (
+                        <Badge bg="danger" pill>
+                          {pendingCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <Button
+                      variant="success"
+                      className="w-100 fw-bold py-2 shadow-sm d-flex align-items-center justify-content-center gap-2"
+                      onClick={() => navigate("/squad")}
+                    >
+                      📋 Generate Match Day
+                    </Button>
+                  </Col>
+                </Row>
               </Card.Body>
             </Card>
           </Col>
         </Row>
       )}
 
-      <Row className="mb-4 align-items-center">
+      {/* 2. PLAYER WELCOME */}
+      <Row className="mb-4">
         <Col>
+          <span className="text-uppercase small fw-bold text-muted tracking-widest">
+            Player Profile
+          </span>
           <h2 className="fw-bold mb-1">
             Welcome back, {userData?.diskiName || "Baller"}!
           </h2>
           <div className="d-flex gap-2">
             <Badge
               bg={userData?.status === "Approved" ? "success" : "warning"}
-              className="px-2 py-1"
+              className="rounded-pill px-3"
             >
-              {userData?.status || "Pending"} {userData?.role || "Player"}
+              {userData?.status || "Pending"} {userData?.role}
             </Badge>
-            <Badge bg="dark" className="px-2 py-1">
+            <Badge bg="light" text="dark" className="rounded-pill px-3 border">
               📍 {displayArea}
             </Badge>
           </div>
@@ -202,92 +188,85 @@ export const UserDashboard = () => {
       </Row>
 
       <Row>
-        <Col md={6} lg={4} className="mb-4">
-          <h5 className="text-muted mb-3 small fw-bold text-uppercase">
-            Your Stats Profile
-          </h5>
+        {/* 3. HERO STATS SECTION */}
+        <Col lg={5} className="mb-4">
+          <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
+            Scouting Report
+          </h6>
           {playerStats ? (
-            <PlayerCard
-              player={playerStats}
-              onRate={() => {}}
-              onToggleSelect={() => {}}
-            />
+            <StatHero player={playerStats} report={report} />
           ) : (
-            <Card
-              className="p-4 text-center border-secondary"
-              style={{
-                borderStyle: "dashed",
-                backgroundColor: "transparent",
-                borderRadius: "15px",
-              }}
-            >
-              <p className="mb-0 text-muted small">
+            <Card className="p-5 text-center border-0 shadow-sm rounded-4 bg-white h-100 d-flex flex-column justify-content-center">
+              <div className="display-4 mb-3">⚽</div>
+              <h5 className="fw-bold">Awaiting Stats</h5>
+              <p className="text-muted small px-3">
                 {userData?.status === "Approved"
-                  ? "Profile approved! Your stats will appear once the Captain links your game data."
-                  : "Waiting for Captain approval to generate your stats card."}
+                  ? "Your profile is linked! Your scouting analysis will appear once you've been rated in a match."
+                  : "Your application is pending approval. Talk to your Captain to get started."}
               </p>
             </Card>
           )}
         </Col>
 
-        <Col md={6} lg={8}>
-          <h5 className="text-muted mb-3 small fw-bold text-uppercase">
-            Quick Actions
-          </h5>
-          <div className="d-grid gap-3 d-sm-flex mb-4">
-            <Button
-              variant="success"
-              size="lg"
-              className="shadow-sm fw-bold px-4"
-              disabled={userData?.status !== "Approved"}
-              onClick={() => navigate("/squad")}
-            >
-              ⚽ Squad & Draft
-            </Button>
-            <Button
-              variant="outline-dark"
-              size="lg"
-              className="shadow-sm fw-bold px-4"
-              onClick={() => navigate("/board")}
-            >
-              💡 Suggestions
-            </Button>
-          </div>
-
-          <Card className="shadow-sm border-0 rounded-4">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <Card.Title className="fw-bold mb-0">Announcements</Card.Title>
-                <Badge bg="light" text="dark" className="border">
-                  {displayArea} News
-                </Badge>
-              </div>
-              <hr />
-              <div className="mb-3 d-flex align-items-start">
-                <Badge bg="info" className="me-2 mt-1">
-                  News
-                </Badge>
+        {/* 4. ANNOUNCEMENTS & ACTIONS */}
+        <Col lg={7}>
+          <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
+            Notice Board
+          </h6>
+          <Card className="shadow-sm border-0 rounded-4 mb-4">
+            <Card.Body className="p-4">
+              <div className="mb-4 d-flex align-items-start">
+                <div className="bg-info bg-opacity-10 p-2 rounded-3 me-3">
+                  <span className="fs-4">📢</span>
+                </div>
                 <div>
-                  <div className="fw-bold small">Sunday Match</div>
+                  <div className="fw-bold">Match Day Confirmation</div>
                   <small className="text-muted">
-                    10:00 AM kickoff. Please confirm availability in the squad
-                    tab.
+                    Sunday 15:30 - 16:00. Please ensure you have toggled your
+                    selection in the Squad tab.
                   </small>
                 </div>
               </div>
               <div className="d-flex align-items-start">
-                <Badge bg="danger" className="me-2 mt-1">
-                  Alert
-                </Badge>
+                <div className="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
+                  <span className="fs-4">📍</span>
+                </div>
                 <div>
-                  <div className="fw-bold small">Pitch Update</div>
+                  <div className="fw-bold">Pitch Location</div>
                   <small className="text-muted">
-                    Pitch 3 is closed. We are moving to the main turf today.
+                    We are using the bottom Baseball field this week. See you
+                    there!
                   </small>
                 </div>
               </div>
             </Card.Body>
           </Card>
+
+          <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
+            Quick Actions
+          </h6>
+          <Row className="g-3">
+            <Col xs={6}>
+              <Button
+                variant="white"
+                className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
+                onClick={() => navigate("/squad")}
+              >
+                <div className="fs-2 mb-2">⚽</div>
+                Go to Squad
+              </Button>
+            </Col>
+            <Col xs={6}>
+              <Button
+                variant="white"
+                className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
+                onClick={() => navigate("/board")}
+              >
+                <div className="fs-2 mb-2">💡</div>
+                Suggestions
+              </Button>
+            </Col>
+          </Row>
         </Col>
       </Row>
     </Container>
