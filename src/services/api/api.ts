@@ -1,25 +1,22 @@
 // This ensures we always have a valid, absolute URL
 const getBaseUrl = () => {
-  let envUrl = import.meta.env.VITE_API_URL;
+  // Get raw value from env
+  let envUrl = import.meta.env.VITE_API_URL || "";
 
-  // 1. If the URL exists but is missing https://, prepend it
-  if (envUrl && !envUrl.startsWith("http")) {
-    envUrl = `https://${envUrl}`;
-  }
-
-  // 2. Remove trailing slashes
-  const sanitizedUrl = envUrl ? envUrl.replace(/\/$/, "") : "";
-
-  // 3. Validation Logic
+  // 1. If it's empty or doesn't start with http, and we are in production
+  // We force the correct absolute domain.
   if (import.meta.env.PROD) {
-    // On the live site, if envUrl is broken/relative, return the hardcoded prod URL
-    return sanitizedUrl.startsWith("http")
-      ? sanitizedUrl
-      : "https://diski-rater-api.synczen.co.za";
+    // This prevents the "Double URL" issue by ensuring a protocol is present
+    return "https://diski-rater-api.synczen.co.za";
   }
 
-  // 4. Fallback for Local Development
-  return sanitizedUrl || "http://localhost:5000";
+  // 2. For local development, check if it's missing the protocol
+  if (envUrl && !envUrl.startsWith("http")) {
+    envUrl = `http://${envUrl}`;
+  }
+
+  // 3. Cleanup trailing slashes
+  return envUrl.replace(/\/$/, "") || "http://localhost:5000";
 };
 
 const API_URL = getBaseUrl();

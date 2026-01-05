@@ -100,7 +100,8 @@ export const LandingPage = () => {
               text="muted"
               className="border px-3 py-2 fw-normal"
             >
-              Currently in <strong>Open Beta (v0.1.4)</strong>
+              {/* Currently in <strong>Open Beta (v0.1.5)</strong> */}
+              Currently in <strong>Closed Beta (v0.1.5)</strong>
             </Badge>
           </div>
         </Col>
