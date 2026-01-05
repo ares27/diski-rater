@@ -227,7 +227,7 @@ app.get("/api/areas/:areaId/has-captain", async (req, res) => {
   try {
     // Look for the Captain in the Player collection for this area
     const captainPlayer = await Player.findOne({
-      area: req.params.areaId,
+      $or: [{ area: req.params.areaId }, { areaId: req.params.areaId }],
       role: "Captain",
     }).lean();
 
