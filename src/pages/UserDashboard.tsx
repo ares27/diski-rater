@@ -15,28 +15,11 @@ import {
   getUserStatus,
   getPlayers,
   getPendingUsers,
+  checkAreaCaptain,
+  claimCaptaincyApi,
 } from "../services/api/api";
 import { StatHero } from "../components/StatHero";
 import { useNavigate } from "react-router-dom";
-
-const checkAreaCaptain = async (areaId: string) => {
-  const res = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/areas/${areaId}/has-captain`
-  );
-  return res.json();
-};
-
-const claimCaptaincyApi = async (data: any) => {
-  const res = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/users/claim-captain`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }
-  );
-  return res.json();
-};
 
 const getScoutReport = (ratings: any) => {
   if (!ratings)
