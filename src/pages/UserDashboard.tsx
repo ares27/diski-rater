@@ -7,6 +7,8 @@ import {
   Badge,
   Spinner,
   Button,
+  Form,
+  Modal,
 } from "react-bootstrap";
 import { auth } from "../firebase/config";
 import {
@@ -16,6 +18,25 @@ import {
 } from "../services/api/api";
 import { StatHero } from "../components/StatHero";
 import { useNavigate } from "react-router-dom";
+
+const checkAreaCaptain = async (areaId: string) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/api/areas/${areaId}/has-captain`
+  );
+  return res.json();
+};
+
+const claimCaptaincyApi = async (data: any) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/api/users/claim-captain`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+  return res.json();
+};
 
 const getScoutReport = (ratings: any) => {
   if (!ratings)
@@ -54,6 +75,11 @@ export const UserDashboard = () => {
   const [playerStats, setPlayerStats] = useState<any>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [areaHasCaptain, setAreaHasCaptain] = useState(true);
+  const [showClaimModal, setShowClaimModal] = useState(false);
+  const [claimData, setClaimData] = useState({ social: "", note: "" });
+  const [areaCaptainData, setAreaCaptainData] = useState<any>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,6 +98,14 @@ export const UserDashboard = () => {
         if (data) {
           setUserData(data);
           localStorage.setItem("diski_user_profile", JSON.stringify(data));
+
+          // Check if area has a captain
+          const areaId = data.areaId || data.area;
+          if (areaId) {
+            const capStatus = await checkAreaCaptain(areaId);
+            setAreaHasCaptain(capStatus.hasCaptain);
+            setAreaCaptainData(capStatus);
+          }
 
           if (data.linkedPlayerId) {
             const allPlayers = await getPlayers();
@@ -101,6 +135,40 @@ export const UserDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  const handleCaptainClaim = async () => {
+    if (!claimData.social || !claimData.note) {
+      alert("Please provide both a social link and a short note.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/users/claim-captain`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firebaseUid: auth.currentUser?.uid,
+            socialLink: claimData.social,
+            note: claimData.note,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        alert("Success! You are now the Captain of " + displayArea);
+        setShowClaimModal(false);
+        // Refresh to show the Captain's Command Centre
+        window.location.reload();
+      } else {
+        throw new Error("Failed to promote");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong with the claim.");
+    }
+  };
+
   const report = getScoutReport(playerStats?.ratings);
   const displayArea = userData?.area || userData?.areaId || "General";
 
@@ -114,7 +182,7 @@ export const UserDashboard = () => {
 
   return (
     <Container className="py-4">
-      {/* 1. CAPTAIN'S PRIVILEGED SECTION (RESTORED & IMPROVED) */}
+      {/* 1. CAPTAIN'S PRIVILEGED SECTION */}
       {userData?.role === "Captain" && (
         <Row className="mb-4">
           <Col>
@@ -140,7 +208,7 @@ export const UserDashboard = () => {
                       className="w-100 fw-bold border-2 py-2 d-flex align-items-center justify-content-center gap-2"
                       onClick={() => navigate("/admin")}
                     >
-                      🛡️ Player Approvals
+                      🛡️ Player Approvals{" "}
                       {pendingCount > 0 && (
                         <Badge bg="danger" pill>
                           {pendingCount}
@@ -164,7 +232,36 @@ export const UserDashboard = () => {
         </Row>
       )}
 
-      {/* 2. PLAYER WELCOME */}
+      {/* 2. ORGANIC CLAIM SECTION */}
+      {!areaHasCaptain &&
+        userData?.role !== "Captain" &&
+        userData?.status === "Approved" && (
+          <Row className="mb-4">
+            <Col>
+              <Card className="border-0 shadow-sm bg-primary bg-opacity-10 rounded-4">
+                <Card.Body className="p-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                  <div style={{ flex: "1 1 300px" }}>
+                    <h5 className="fw-bold text-primary mb-1">
+                      Founding Captain Wanted 🏆
+                    </h5>
+                    <p className="small mb-0 text-dark">
+                      {displayArea} has no organizer. Claim this area to lead!
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    className="fw-bold rounded-pill px-4"
+                    onClick={() => setShowClaimModal(true)}
+                  >
+                    Apply to Lead
+                  </Button>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        )}
+
+      {/* 3. PLAYER WELCOME */}
       <Row className="mb-4">
         <Col>
           <span className="text-uppercase small fw-bold text-muted tracking-widest">
@@ -173,6 +270,7 @@ export const UserDashboard = () => {
           <h2 className="fw-bold mb-1">
             Welcome back, {userData?.diskiName || "Baller"}!
           </h2>
+          {/* {JSON.stringify(areaCaptainData)} */}
           <div className="d-flex gap-2">
             <Badge
               bg={userData?.status === "Approved" ? "success" : "warning"}
@@ -188,7 +286,6 @@ export const UserDashboard = () => {
       </Row>
 
       <Row>
-        {/* 3. HERO STATS SECTION */}
         <Col lg={5} className="mb-4">
           <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
             Scouting Report
@@ -201,15 +298,44 @@ export const UserDashboard = () => {
               <h5 className="fw-bold">Awaiting Stats</h5>
               <p className="text-muted small px-3">
                 {userData?.status === "Approved"
-                  ? "Your profile is linked! Your scouting analysis will appear once you've been rated in a match."
-                  : "Your application is pending approval. Talk to your Captain to get started."}
+                  ? "Your profile is linked! Scouting analysis appears after your first match."
+                  : "Your application is pending approval."}
               </p>
             </Card>
           )}
         </Col>
 
-        {/* 4. ANNOUNCEMENTS & ACTIONS */}
         <Col lg={7}>
+          {/* NEW: WHATSAPP VERIFIED ACTION */}
+          {areaHasCaptain &&
+            userData?.role !== "Captain" &&
+            areaCaptainData?.socialLink && (
+              <Card className="border-0 shadow-sm bg-success bg-opacity-10 mb-4 rounded-4">
+                <Card.Body className="d-flex align-items-center justify-content-between p-3">
+                  <div className="d-flex align-items-center">
+                    <div className="fs-3 me-3">💬</div>
+                    <div>
+                      <h6 className="mb-0 fw-bold text-success">
+                        Join the Squad Chat
+                      </h6>
+                      <small className="text-dark opacity-75">
+                        Official WhatsApp for {displayArea}
+                      </small>
+                    </div>
+                  </div>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="rounded-pill px-3 fw-bold shadow-sm"
+                    onClick={() =>
+                      window.open(areaCaptainData.socialLink, "_blank")
+                    }
+                  >
+                    Join Group
+                  </Button>
+                </Card.Body>
+              </Card>
+            )}
           <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
             Notice Board
           </h6>
@@ -222,8 +348,7 @@ export const UserDashboard = () => {
                 <div>
                   <div className="fw-bold">Match Day Confirmation</div>
                   <small className="text-muted">
-                    Sunday 15:30 - 16:00. Please ensure you have toggled your
-                    selection in the Squad tab.
+                    Sunday 15:30. Ensure you toggle selection in Squad tab.
                   </small>
                 </div>
               </div>
@@ -234,8 +359,7 @@ export const UserDashboard = () => {
                 <div>
                   <div className="fw-bold">Pitch Location</div>
                   <small className="text-muted">
-                    We are using the bottom Baseball field this week. See you
-                    there!
+                    We are using the bottom Baseball field this week.
                   </small>
                 </div>
               </div>
@@ -252,8 +376,7 @@ export const UserDashboard = () => {
                 className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
                 onClick={() => navigate("/squad")}
               >
-                <div className="fs-2 mb-2">⚽</div>
-                Go to Squad
+                <div className="fs-2 mb-2">⚽</div>Go to Squad
               </Button>
             </Col>
             <Col xs={6}>
@@ -262,13 +385,60 @@ export const UserDashboard = () => {
                 className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
                 onClick={() => navigate("/board")}
               >
-                <div className="fs-2 mb-2">💡</div>
-                Suggestions
+                <div className="fs-2 mb-2">💡</div>Suggestions
               </Button>
             </Col>
           </Row>
         </Col>
       </Row>
+
+      {/* CLAIM MODAL */}
+      <Modal
+        show={showClaimModal}
+        onHide={() => setShowClaimModal(false)}
+        centered
+      >
+        <Modal.Header closeButton className="border-0">
+          <Modal.Title className="fw-bold">Claim Captaincy</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label className="small fw-bold">
+              WhatsApp Group Invite Link
+            </Form.Label>
+            <Form.Control
+              type="url"
+              placeholder="https://chat.whatsapp.com/..."
+              onChange={(e) =>
+                setClaimData({ ...claimData, social: e.target.value })
+              }
+            />
+            <Form.Text className="text-muted small">
+              Provide the invite link to your area's football group so players
+              can join.
+            </Form.Text>
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label className="small fw-bold">
+              Why should you lead {displayArea}?
+            </Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              onChange={(e) =>
+                setClaimData({ ...claimData, note: e.target.value })
+              }
+            />
+          </Form.Group>
+          <Button
+            variant="primary"
+            className="w-100 fw-bold"
+            onClick={handleCaptainClaim}
+          >
+            Submit Application
+          </Button>
+        </Modal.Body>
+      </Modal>
     </Container>
   );
 };

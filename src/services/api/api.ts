@@ -164,3 +164,17 @@ export const registerUserApi = async (userData: any) => {
   }
   return res.json();
 };
+
+export const checkAreaCaptain = (areaId: string) =>
+  fetch(`${API_URL}/api/areas/${areaId}/has-captain`).then((res) => res.json());
+
+export const claimCaptaincyApi = (data: {
+  firebaseUid: string;
+  socialLink: string;
+  note: string;
+}) =>
+  fetch(`${API_URL}/api/users/claim-captain`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).then((res) => res.json());

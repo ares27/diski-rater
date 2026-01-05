@@ -391,6 +391,7 @@ function App() {
     userArea,
     userRole,
     refreshUserStatus,
+    userData: JSON.parse(localStorage.getItem("diski_user_profile") || "null"),
     selectedCount: players.filter(
       (p) => p.isSelected && (p.area === userArea || p.areaId === userArea)
     ).length,

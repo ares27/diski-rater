@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Card,
   Container,
   Table,
   Button,
@@ -9,6 +10,7 @@ import {
   Form,
 } from "react-bootstrap";
 import { getPendingUsers, approveUser, declineUser } from "../services/api/api";
+import { auth } from "../firebase/config"; // Ensure auth is imported for the API call
 
 // Accept squadProps as a prop to access refreshUserStatus
 export const CaptainTools = ({ squadProps }: any) => {
@@ -17,9 +19,29 @@ export const CaptainTools = ({ squadProps }: any) => {
   const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>(
     {}
   );
+  const [isEditingLink, setIsEditingLink] = useState(false);
+  const [tempLink, setTempLink] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // Destructure the refresh function from squadProps
   const { refreshUserStatus } = squadProps || {};
+
+  // 2. Safety Net for userData: Check props, then check localStorage
+  const userData =
+    squadProps?.userData ||
+    JSON.parse(localStorage.getItem("diski_user_profile") || "{}");
+
+  // Debug line: Open your browser console to see what this says!
+  // console.log("DEBUG: CaptainTools received userData:", userData);
+
+  const handleCopyLink = () => {
+    const link = userData?.captainClaim?.socialLink || userData?.socialLink;
+    if (link) {
+      navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Reset "Copied" text after 2 seconds
+    }
+  };
 
   useEffect(() => {
     fetchPending();
@@ -34,7 +56,14 @@ export const CaptainTools = ({ squadProps }: any) => {
     try {
       const data = await getPendingUsers();
       const playersArray = Array.isArray(data) ? data : [];
-      setPendingUsers(playersArray);
+
+      // Filter so Captain only sees their area
+      const captainArea = userData?.area || userData?.areaId;
+      const filtered = playersArray.filter(
+        (u) => (u.area || u.areaId) === captainArea
+      );
+
+      setPendingUsers(filtered);
 
       // Initialize roles: default everyone to "Player"
       const initialRoles: Record<string, string> = {};
@@ -93,6 +122,49 @@ export const CaptainTools = ({ squadProps }: any) => {
     }
   };
 
+  const handleSaveLink = async () => {
+    if (!tempLink.includes("chat.whatsapp.com")) {
+      alert("Please enter a valid WhatsApp invite link.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/users/update-squad-link`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firebaseUid: auth.currentUser?.uid,
+            newSocialLink: tempLink,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        alert("WhatsApp link updated!");
+        setIsEditingLink(false);
+
+        // 2. Use the refresh function to update the global state
+        if (refreshUserStatus) await refreshUserStatus();
+      }
+    } catch (err) {
+      alert("Failed to update link.");
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    const link = userData?.captainClaim?.socialLink || userData?.socialLink;
+    if (!link) return;
+
+    const message = `⚽ *Join our Diski Squad!* ⚽\n\nTap the link below to join our official WhatsApp group:\n${link}`;
+
+    // Use the WhatsApp API link
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, "_blank");
+  };
+
   if (loading) {
     return (
       <Container className="py-5 text-center">
@@ -110,6 +182,95 @@ export const CaptainTools = ({ squadProps }: any) => {
           🔄 Refresh
         </Button>
       </div>
+
+      {/* --- ADD THIS SECTION HERE --- */}
+      <Card className="border-0 shadow-sm mb-4 bg-light rounded-4">
+        <Card.Body className="p-3">
+          <div className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center">
+              <span className="fs-4 me-3">🔗</span>
+              <div>
+                <div className="fw-bold small text-uppercase text-muted">
+                  Squad WhatsApp Link
+                </div>
+                {isEditingLink ? (
+                  <Form.Control
+                    size="sm"
+                    value={tempLink}
+                    onChange={(e) => setTempLink(e.target.value)}
+                    placeholder="Paste new link..."
+                    className="mt-1"
+                  />
+                ) : (
+                  <div className="d-flex flex-column gap-1">
+                    <small className="text-success fw-bold d-block">
+                      {userData?.captainClaim?.socialLink ||
+                        userData?.socialLink ||
+                        "No link set"}
+                    </small>
+
+                    {(userData?.captainClaim?.socialLink ||
+                      userData?.socialLink) && (
+                      <div className="d-flex gap-2 mt-1">
+                        {/* Copy Button */}
+                        <Button
+                          variant="outline-success"
+                          size="sm"
+                          className="py-0 px-2"
+                          style={{ fontSize: "0.7rem", height: "22px" }}
+                          onClick={handleCopyLink}
+                        >
+                          {copied ? "✅" : "📋 Copy"}
+                        </Button>
+
+                        {/* Share Button */}
+                        <Button
+                          variant="success"
+                          size="sm"
+                          className="py-0 px-2 d-flex align-items-center gap-1"
+                          style={{ fontSize: "0.7rem", height: "22px" }}
+                          onClick={handleShareWhatsApp}
+                        >
+                          <span style={{ fontSize: "0.8rem" }}>💬</span> Share
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              {isEditingLink ? (
+                <div className="d-flex gap-2">
+                  <Button variant="success" size="sm" onClick={handleSaveLink}>
+                    Save
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => setIsEditingLink(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="link"
+                  className="text-decoration-none p-0"
+                  onClick={() => {
+                    setTempLink(userData?.captainClaim?.socialLink || "");
+                    setIsEditingLink(true);
+                  }}
+                >
+                  Edit Link
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card.Body>
+      </Card>
+      {/* ---------------------------- */}
 
       <h4 className="mb-3 text-muted">Pending Join Requests</h4>
 

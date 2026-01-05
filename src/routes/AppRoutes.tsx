@@ -57,7 +57,12 @@ export const AppRoutes = ({
         path="/admin"
         element={
           user && userRole === "Captain" ? (
-            <CaptainTools />
+            <CaptainTools
+              squadProps={{
+                refreshUserStatus: squadProps.refreshUserStatus,
+                userData: squadProps.userData,
+              }}
+            />
           ) : (
             <Navigate to="/home" />
           )

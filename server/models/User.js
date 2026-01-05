@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema({
   },
   areaId: { type: String, required: true },
   linkedPlayerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player" }, // Links to the actual stats
+  captainClaim: {
+    socialLink: String,
+    note: String,
+    claimedAt: { type: Date, default: Date.now },
+  },
 });
 
 module.exports = mongoose.model("User", userSchema, "users");

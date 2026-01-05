@@ -222,6 +222,86 @@ app.patch("/api/suggestions/:id/upvote", async (req, res) => {
   }
 });
 
+// 1. Check if an area has an active captain
+app.get("/api/areas/:areaId/has-captain", async (req, res) => {
+  try {
+    // Look for the Captain in the Player collection for this area
+    const captainPlayer = await Player.findOne({
+      area: req.params.areaId,
+      role: "Captain",
+    }).lean();
+
+    res.json({
+      hasCaptain: !!captainPlayer,
+      socialLink: captainPlayer?.socialLink || null,
+      captainName: captainPlayer?.diskiName || "The Captain",
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 2. Submit Captaincy Claim & Auto-Promote
+app.post("/api/users/claim-captain", async (req, res) => {
+  try {
+    const { firebaseUid, socialLink, note } = req.body;
+
+    // 1. Update the User (The private record)
+    const updatedUser = await User.findOneAndUpdate(
+      { firebaseUid },
+      {
+        $set: {
+          role: "Captain",
+          captainClaim: { socialLink, note, claimedAt: new Date() },
+        },
+      },
+      { new: true, runValidators: false }
+    );
+
+    if (!updatedUser)
+      return res.status(404).json({ message: "User not found" });
+
+    // 2. Update the Player (The public record)
+    if (updatedUser.linkedPlayerId) {
+      await Player.findByIdAndUpdate(updatedUser.linkedPlayerId, {
+        $set: {
+          role: "Captain",
+          socialLink: socialLink, // Sync the link here!
+        },
+      });
+    }
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Update Whatsapp link
+app.post("/api/users/update-squad-link", async (req, res) => {
+  try {
+    const { firebaseUid, newSocialLink } = req.body;
+
+    // 1. Update User Record
+    const user = await User.findOneAndUpdate(
+      { firebaseUid },
+      { $set: { "captainClaim.socialLink": newSocialLink } },
+      { new: true }
+    );
+
+    // 2. Sync to Player Record
+    if (user && user.linkedPlayerId) {
+      await Player.findByIdAndUpdate(user.linkedPlayerId, {
+        $set: { socialLink: newSocialLink },
+      });
+    }
+
+    res.json({ success: true, newSocialLink });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get("/api/test", (req, res) => {
   res.json({
     status: `⚽ DiskiRater server running on port ${PORT}`,
