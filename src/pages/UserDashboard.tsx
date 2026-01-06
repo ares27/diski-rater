@@ -62,8 +62,13 @@ export const UserDashboard = () => {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [claimData, setClaimData] = useState({ social: "", note: "" });
   const [areaCaptainData, setAreaCaptainData] = useState<any>(null);
+  const [pendingMatches, setPendingMatches] = useState<any[]>([]);
+  const isApproved = userData?.status === "Approved";
 
   const navigate = useNavigate();
+
+  const report = getScoutReport(playerStats?.ratings);
+  const displayArea = userData?.area || userData?.areaId || "General";
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -86,6 +91,7 @@ export const UserDashboard = () => {
           const areaId = data.areaId || data.area;
           if (areaId) {
             const capStatus = await checkAreaCaptain(areaId);
+            console.log("Captain Status Check:", capStatus); // Add this to debug!
             setAreaHasCaptain(capStatus.hasCaptain);
             setAreaCaptainData(capStatus);
           }
@@ -117,6 +123,36 @@ export const UserDashboard = () => {
     };
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const fetchPendingMatches = async () => {
+      const user = auth.currentUser;
+      if (!user || !isApproved || !userData?.linkedPlayerId) return;
+
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/matches/pending/${displayArea}`
+        );
+        const data = await response.json();
+
+        // NEW LOGIC: Only show on Dashboard if I am ALREADY in the lineup
+        // AND I haven't verified yet.
+        const myPersonalPending = data.filter((m: any) => {
+          const isInLineup = [...m.lineups.teamA, ...m.lineups.teamB].includes(
+            userData.linkedPlayerId
+          );
+          const hasNotVerified = !m.verifications.includes(user.uid);
+          return isInLineup && hasNotVerified;
+        });
+
+        setPendingMatches(myPersonalPending);
+      } catch (err) {
+        console.error("Failed to fetch pending matches", err);
+      }
+    };
+
+    if (displayArea && isApproved) fetchPendingMatches();
+  }, [displayArea, isApproved, userData?.linkedPlayerId]);
 
   const handleCaptainClaim = async () => {
     if (!claimData.social || !claimData.note) {
@@ -152,8 +188,26 @@ export const UserDashboard = () => {
     }
   };
 
-  const report = getScoutReport(playerStats?.ratings);
-  const displayArea = userData?.area || userData?.areaId || "General";
+  const handleVerify = async (matchId: string) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/matches/${matchId}/verify`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firebaseUid: auth.currentUser?.uid }),
+        }
+      );
+
+      if (response.ok) {
+        // Remove from local state
+        setPendingMatches((prev) => prev.filter((m) => m._id !== matchId));
+        alert("Match confirmed! Stats will update once 75% of players agree.");
+      }
+    } catch (err) {
+      alert("Verification failed.");
+    }
+  };
 
   if (loading)
     return (
@@ -215,36 +269,7 @@ export const UserDashboard = () => {
         </Row>
       )}
 
-      {/* 2. ORGANIC CLAIM SECTION */}
-      {!areaHasCaptain &&
-        userData?.role !== "Captain" &&
-        userData?.status === "Approved" && (
-          <Row className="mb-4">
-            <Col>
-              <Card className="border-0 shadow-sm bg-primary bg-opacity-10 rounded-4">
-                <Card.Body className="p-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
-                  <div style={{ flex: "1 1 300px" }}>
-                    <h5 className="fw-bold text-primary mb-1">
-                      Founding Captain Wanted 🏆
-                    </h5>
-                    <p className="small mb-0 text-dark">
-                      {displayArea} has no organizer. Claim this area to lead!
-                    </p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    className="fw-bold rounded-pill px-4"
-                    onClick={() => setShowClaimModal(true)}
-                  >
-                    Apply to Lead
-                  </Button>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        )}
-
-      {/* 3. PLAYER WELCOME */}
+      {/* 2. PLAYER WELCOME HEADER */}
       <Row className="mb-4">
         <Col>
           <span className="text-uppercase small fw-bold text-muted tracking-widest">
@@ -253,10 +278,9 @@ export const UserDashboard = () => {
           <h2 className="fw-bold mb-1">
             Welcome back, {userData?.diskiName || "Baller"}!
           </h2>
-          {/* {JSON.stringify(areaCaptainData)} */}
           <div className="d-flex gap-2">
             <Badge
-              bg={userData?.status === "Approved" ? "success" : "warning"}
+              bg={isApproved ? "success" : "warning"}
               className="rounded-pill px-3"
             >
               {userData?.status || "Pending"} {userData?.role}
@@ -265,115 +289,274 @@ export const UserDashboard = () => {
               📍 {displayArea}
             </Badge>
           </div>
-        </Col>
-      </Row>
-
-      <Row>
-        <Col lg={5} className="mb-4">
-          <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
-            Scouting Report
-          </h6>
-          {playerStats ? (
-            <StatHero player={playerStats} report={report} />
-          ) : (
-            <Card className="p-5 text-center border-0 shadow-sm rounded-4 bg-white h-100 d-flex flex-column justify-content-center">
-              <div className="display-4 mb-3">⚽</div>
-              <h5 className="fw-bold">Awaiting Stats</h5>
-              <p className="text-muted small px-3">
-                {userData?.status === "Approved"
-                  ? "Your profile is linked! Scouting analysis appears after your first match."
-                  : "Your application is pending approval."}
-              </p>
-            </Card>
+          {/* --- NEW AREA MATCHES BUTTON --- */}
+          {isApproved && (
+            <Button
+              variant="dark"
+              size="sm"
+              className="rounded-pill px-3 shadow-sm d-flex align-items-center gap-2"
+              onClick={() => navigate(`/area/${displayArea}`)}
+              style={{ fontSize: "0.8rem", marginTop: "1.5rem" }}
+            >
+              ⚽ Area Matches
+            </Button>
           )}
         </Col>
+      </Row>
 
-        <Col lg={7}>
-          {/* NEW: WHATSAPP VERIFIED ACTION */}
-          {areaHasCaptain &&
-            userData?.role !== "Captain" &&
-            areaCaptainData?.socialLink && (
-              <Card className="border-0 shadow-sm bg-success bg-opacity-10 mb-4 rounded-4">
-                <Card.Body className="d-flex align-items-center justify-content-between p-3">
-                  <div className="d-flex align-items-center">
-                    <div className="fs-3 me-3">💬</div>
-                    <div>
-                      <h6 className="mb-0 fw-bold text-success">
-                        Join the Squad Chat
-                      </h6>
-                      <small className="text-dark opacity-75">
-                        Official WhatsApp for {displayArea}
-                      </small>
+      {/* 3. CONDITIONAL RENDER: APPROVED CONTENT VS PENDING MESSAGE */}
+      {!isApproved ? (
+        /* WAITING FOR APPROVAL MESSAGE */
+        <Row>
+          <Col>
+            <Card className="border-0 shadow-sm rounded-4 bg-white p-5 text-center">
+              <div className="display-1 mb-3">⏳</div>
+              <h4 className="fw-bold">Awaiting Admin Approval</h4>
+              <p className="text-muted mx-auto" style={{ maxWidth: "450px" }}>
+                Your profile is currently under review by the{" "}
+                <strong>{displayArea}</strong> Area Captain. Once approved,
+                you'll gain access to match verifications, scouting reports, and
+                team chats.
+              </p>
+              <div className="mt-2">
+                <Button
+                  variant="outline-success"
+                  className="rounded-pill px-4"
+                  onClick={() => window.location.reload()}
+                >
+                  🔄 Check Status
+                </Button>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      ) : (
+        /* FULL DASHBOARD FOR APPROVED PLAYERS */
+        <>
+          {/* 4. MATCH VERIFICATION ALERT (Oldest First Queue) */}
+          {pendingMatches.length > 0 && (
+            <Row className="mb-4">
+              <Col>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h6 className="text-danger mb-0 small fw-bold text-uppercase tracking-wider">
+                    ⚠️ Pending Verification
+                  </h6>
+                  {pendingMatches.length > 1 && (
+                    <Badge bg="danger" pill>
+                      +{pendingMatches.length - 1} more
+                    </Badge>
+                  )}
+                </div>
+                {(() => {
+                  const match = pendingMatches[0];
+                  const confirmedCount = match.verifications.length;
+                  const requiredCount = Math.ceil(
+                    match.expectedConfirmations * 0.75
+                  );
+                  return (
+                    <Card
+                      key={match._id}
+                      className="border-0 shadow-sm rounded-4 bg-white border-start border-danger border-4"
+                    >
+                      <Card.Body className="p-4">
+                        <Row className="align-items-center">
+                          <Col>
+                            <div className="small text-muted mb-1 text-uppercase fw-bold">
+                              Recent Result
+                            </div>
+                            <h4 className="fw-bold mb-0">
+                              {match.score.teamA}{" "}
+                              <span className="text-muted mx-2">—</span>{" "}
+                              {match.score.teamB}
+                            </h4>
+                            <p className="small text-muted mt-2 mb-0">
+                              Progress:{" "}
+                              <strong>
+                                {confirmedCount}/{requiredCount}
+                              </strong>
+                            </p>
+                          </Col>
+                          <Col xs="auto" className="text-end">
+                            <div className="d-flex flex-column gap-2">
+                              <Button
+                                variant="success"
+                                className="rounded-pill fw-bold px-4"
+                                onClick={() => handleVerify(match._id)}
+                              >
+                                Confirm ✅
+                              </Button>
+                              <Button
+                                variant="light"
+                                size="sm"
+                                className="text-muted rounded-pill"
+                                onClick={() =>
+                                  navigate(`/match-details/${match._id}`)
+                                }
+                              >
+                                View Details
+                              </Button>
+                            </div>
+                          </Col>
+                        </Row>
+                        <div
+                          className="progress mt-3"
+                          style={{ height: "4px" }}
+                        >
+                          <div
+                            className="progress-bar bg-success"
+                            style={{
+                              width: `${
+                                (confirmedCount / requiredCount) * 100
+                              }%`,
+                            }}
+                          ></div>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  );
+                })()}
+              </Col>
+            </Row>
+          )}
+
+          <Row>
+            {/* 5. SCOUTING REPORT */}
+            <Col lg={5} className="mb-4">
+              <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
+                Scouting Report
+              </h6>
+              <StatHero player={playerStats} report={report} />
+            </Col>
+
+            <Col lg={7}>
+              {/* 6. WHATSAPP CHAT */}
+              {areaHasCaptain && areaCaptainData?.socialLink && (
+                <Card className="border-0 shadow-sm bg-success bg-opacity-10 mb-4 rounded-4">
+                  <Card.Body className="d-flex align-items-center justify-content-between p-3">
+                    <div className="d-flex align-items-center">
+                      <div className="fs-3 me-3">💬</div>
+                      <div>
+                        <h6 className="mb-0 fw-bold text-success">
+                          Join the Squad Chat
+                        </h6>
+                        <small className="text-dark opacity-75">
+                          Official WhatsApp for {displayArea}
+                        </small>
+                      </div>
                     </div>
+                    <Button
+                      variant="success"
+                      size="sm"
+                      className="rounded-pill px-3 fw-bold shadow-sm"
+                      onClick={() =>
+                        window.open(areaCaptainData.socialLink, "_blank")
+                      }
+                    >
+                      Join Group
+                    </Button>
+                  </Card.Body>
+                </Card>
+              )}
+
+              {/* 6.5 ANNOUNCEMENTS */}
+              <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
+                📢 Announcements
+              </h6>
+              <Card className="border-0 shadow-sm rounded-4 bg-white mb-4 overflow-hidden">
+                <Card.Body className="p-0">
+                  {/* If you have a specific announcements array in state, map it here. 
+        Otherwise, here is a placeholder/static version based on Area logic */}
+                  <div className="p-3 border-bottom border-light">
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                      <Badge bg="info" className="rounded-pill small">
+                        General
+                      </Badge>
+                      <small className="text-muted">Just now</small>
+                    </div>
+                    <h6 className="fw-bold mb-1">
+                      Welcome to the {displayArea} Diski Centre!
+                    </h6>
+                    <p className="small text-muted mb-0">
+                      Make sure to verify your recent matches to keep your
+                      scouting report updated.
+                    </p>
                   </div>
-                  <Button
-                    variant="success"
-                    size="sm"
-                    className="rounded-pill px-3 fw-bold shadow-sm"
-                    onClick={() =>
-                      window.open(areaCaptainData.socialLink, "_blank")
-                    }
-                  >
-                    Join Group
-                  </Button>
+
+                  {/* Example of a second announcement */}
+                  <div className="p-3 bg-light bg-opacity-50">
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                      <Badge
+                        bg="warning"
+                        text="dark"
+                        className="rounded-pill small"
+                      >
+                        Alert
+                      </Badge>
+                      <small className="text-muted">Yesterday</small>
+                    </div>
+                    <h6 className="fw-bold mb-1">Weekly Rankings Reset</h6>
+                    <p className="small text-muted mb-0">
+                      New leaderboards are calculated every Monday. Play more to
+                      climb the ranks!
+                    </p>
+                  </div>
                 </Card.Body>
               </Card>
-            )}
-          <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
-            Notice Board
-          </h6>
-          <Card className="shadow-sm border-0 rounded-4 mb-4">
-            <Card.Body className="p-4">
-              <div className="mb-4 d-flex align-items-start">
-                <div className="bg-info bg-opacity-10 p-2 rounded-3 me-3">
-                  <span className="fs-4">📢</span>
-                </div>
-                <div>
-                  <div className="fw-bold">Match Day Confirmation</div>
-                  <small className="text-muted">
-                    Sunday 15:30. Ensure you toggle selection in Squad tab.
-                  </small>
-                </div>
-              </div>
-              <div className="d-flex align-items-start">
-                <div className="bg-warning bg-opacity-10 p-2 rounded-3 me-3">
-                  <span className="fs-4">📍</span>
-                </div>
-                <div>
-                  <div className="fw-bold">Pitch Location</div>
-                  <small className="text-muted">
-                    We are using the bottom Baseball field this week.
-                  </small>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
 
-          <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
-            Quick Actions
-          </h6>
-          <Row className="g-3">
-            <Col xs={6}>
-              <Button
-                variant="white"
-                className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
-                onClick={() => navigate("/squad")}
-              >
-                <div className="fs-2 mb-2">⚽</div>Go to Squad
-              </Button>
-            </Col>
-            <Col xs={6}>
-              <Button
-                variant="white"
-                className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
-                onClick={() => navigate("/board")}
-              >
-                <div className="fs-2 mb-2">💡</div>Suggestions
-              </Button>
+              {/* 7. QUICK ACTIONS */}
+              <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
+                Quick Actions
+              </h6>
+              <Row className="g-3">
+                <Col xs={12}>
+                  <Button
+                    variant={pendingMatches.length > 0 ? "warning" : "white"}
+                    className="w-100 py-3 shadow-sm border-0 rounded-4 fw-bold d-flex align-items-center justify-content-between px-4"
+                    onClick={() => navigate("/pending-matches")}
+                  >
+                    <div className="d-flex align-items-center">
+                      <span className="fs-3 me-3">⏳</span>
+                      <div className="text-start">
+                        <div className="mb-0 text-dark">
+                          Area Pending Matches
+                        </div>
+                        <small className="text-muted fw-normal">
+                          {pendingMatches.length > 0
+                            ? `${pendingMatches.length} matches need review`
+                            : "All caught up!"}
+                        </small>
+                      </div>
+                    </div>
+                    {pendingMatches.length > 0 && (
+                      <Badge bg="danger" pill>
+                        {pendingMatches.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </Col>
+                <Col xs={6}>
+                  <Button
+                    variant="white"
+                    className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
+                    onClick={() => navigate("/squad")}
+                  >
+                    <div className="fs-2 mb-2">⚽</div>Go to Squad
+                  </Button>
+                </Col>
+                <Col xs={6}>
+                  <Button
+                    variant="white"
+                    className="w-100 py-4 shadow-sm border-0 rounded-4 fw-bold text-dark h-100"
+                    onClick={() => navigate("/board")}
+                  >
+                    <div className="fs-2 mb-2">💡</div>Suggestions
+                  </Button>
+                </Col>
+              </Row>
             </Col>
           </Row>
-        </Col>
-      </Row>
+        </>
+      )}
 
       {/* CLAIM MODAL */}
       <Modal

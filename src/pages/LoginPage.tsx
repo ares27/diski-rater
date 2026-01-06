@@ -163,10 +163,12 @@ export const LoginPage = () => {
                 onChange={(e) => setLocation(e.target.value)}
                 className="border-success"
               >
+                <option value="Centurion">Centurion</option>
+                <option value="Erasmia">Erasmia</option>
+                <option value="Midrand">VTH</option>
+                <option value="Rooihuiskraal">VTH</option>
                 <option value="Valhalla">Valhalla</option>
                 <option value="VTH">VTH</option>
-                <option value="Erasmia">Erasmia</option>
-                <option value="Centurion Central">Centurion Central</option>
               </Form.Select>
             </Form.Group>
           )}

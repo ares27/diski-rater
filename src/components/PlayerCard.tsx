@@ -73,6 +73,14 @@ const PlayerCard = ({
                 © CAPTAIN
               </Badge>
             )}
+            {player.isPioneer && (
+              <span
+                title="Area Pioneer"
+                style={{ cursor: "help", marginLeft: "5px" }}
+              >
+                🛡️
+              </span>
+            )}
           </div>
 
           {!hideCheck && (

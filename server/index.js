@@ -36,6 +36,7 @@ app.use(
 const Suggestion = require("./models/Suggestions");
 const Player = require("./models/Player");
 const User = require("./models/User");
+const Match = require("./models/Match");
 
 // Connect to Atlas
 const mongoURI = process.env.MONGODB_URI;
@@ -97,9 +98,9 @@ app.post("/api/suggestions", async (req, res) => {
   }
 });
 
-// Create New Users
+// Create New Users with Auto-Promotion for Pioneers
 app.post("/api/users", async (req, res) => {
-  console.log("📥 Received request body:", req.body); // Check if data arrives
+  console.log("📥 Received registration request:", req.body.diskiName);
   try {
     const {
       firebaseUid,
@@ -112,11 +113,49 @@ app.post("/api/users", async (req, res) => {
       status,
     } = req.body;
 
-    // Check if user already exists
+    // 1. Check if user already exists
     const existingUser = await User.findOne({ firebaseUid });
     if (existingUser)
       return res.status(400).json({ message: "User already exists" });
 
+    // 2. CHECK FOR PIONEER STATUS: Is this the first person in this area?
+    // We check both the User and Player collections to be safe
+    const userInArea = await User.findOne({ areaId });
+    const playerInArea = await Player.findOne({
+      $or: [{ area: areaId }, { areaId: areaId }],
+    });
+
+    const isFirstInArea = !userInArea && !playerInArea;
+
+    // 3. Set Initial Status
+    const finalStatus = isFirstInArea ? "Approved" : status || "Pending";
+    let linkedPlayerId = null;
+
+    // 4. IF FIRST USER: Automatically create their Player Card
+    if (isFirstInArea) {
+      const pioneerPlayer = new Player({
+        name: diskiName,
+        diskiName: diskiName,
+        area: areaId,
+        position: position,
+        role: "Player", // They start as Player, then claim Captaincy via UI
+        isPioneer: true,
+        isSelected: false,
+        ratings: {
+          pace: 50,
+          technical: 50,
+          physical: 50,
+          reliability: 50,
+        },
+      });
+      const savedPlayer = await pioneerPlayer.save();
+      linkedPlayerId = savedPlayer._id;
+      console.info(
+        `🌟 Pioneer detected! Auto-approved ${diskiName} for ${areaId}`
+      );
+    }
+
+    // 5. Create the User record
     const newUser = new User({
       firebaseUid,
       phoneNumber,
@@ -125,11 +164,17 @@ app.post("/api/users", async (req, res) => {
       email,
       areaId,
       role: role || "Player",
-      status: status || "Pending",
+      status: finalStatus,
+      linkedPlayerId: linkedPlayerId, // Link it immediately for pioneers
     });
 
     await newUser.save();
-    res.status(201).json(newUser);
+
+    // Return the user and a flag so the frontend can show a special welcome
+    res.status(201).json({
+      ...newUser.toObject(),
+      isPioneer: isFirstInArea,
+    });
   } catch (err) {
     console.error("Mongo Save Error:", err);
     res.status(500).json({ message: err.message });
@@ -229,6 +274,16 @@ app.get("/api/areas/:areaId/has-captain", async (req, res) => {
       role: "Captain",
     }).lean();
 
+    // 2. If no link on Player, check the User record just in case
+    let link = captainPlayer?.socialLink;
+
+    if (!link && captainPlayer) {
+      const capUser = await User.findOne({
+        firebaseUid: captainPlayer.firebaseUid,
+      });
+      link = capUser?.captainClaim?.socialLink;
+    }
+
     res.json({
       hasCaptain: !!captainPlayer,
       socialLink: captainPlayer?.socialLink || null,
@@ -300,6 +355,373 @@ app.post("/api/users/update-squad-link", async (req, res) => {
   }
 });
 
+// Submit a Match
+app.post("/api/matches", async (req, res) => {
+  try {
+    // 1. Destructure all fields being sent from LogMatch.tsx
+    const {
+      areaId,
+      submittedBy,
+      score,
+      lineups,
+      playerPerformance, // This matches the frontend key
+      expectedConfirmations,
+    } = req.body;
+
+    // Check if submitter is at least an approved user
+    const user = await User.findOne({ firebaseUid: submittedBy });
+    if (!user || user.status !== "Approved") {
+      return res
+        .status(403)
+        .json({ message: "Only approved players can log matches." });
+    }
+
+    // 2. Add the missing fields to the new Match instance
+    const newMatch = new Match({
+      areaId,
+      submittedBy,
+      score,
+      lineups,
+      playerPerformance, // Ensure this matches your Schema name
+      expectedConfirmations, // This was the missing link causing the error
+      verifications: [submittedBy], // Submitter auto-verifies
+      status: "Pending", // Explicitly set starting status
+    });
+
+    await newMatch.save();
+    res.status(201).json(newMatch);
+  } catch (err) {
+    // 3. Log the error specifically for debugging
+    console.error("Match Save Error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Verify a Match
+app.patch("/api/matches/:matchId/verify", async (req, res) => {
+  try {
+    const { firebaseUid } = req.body;
+    const match = await Match.findById(req.params.matchId);
+
+    if (!match) return res.status(404).json({ message: "Match not found" });
+    if (match.status !== "Pending")
+      return res.status(400).json({ message: "Match already locked" });
+
+    // Add verification if not already present
+    if (!match.verifications.includes(firebaseUid)) {
+      match.verifications.push(firebaseUid);
+    }
+
+    // Calculate threshold
+    const required = Math.ceil(match.expectedConfirmations * 0.75);
+
+    if (match.verifications.length >= required) {
+      match.status = "Verified";
+      await match.save();
+
+      // 🔥 CALL THE SERVER-SIDE FINALIZER
+      await finalizeMatchStats(match);
+
+      return res.json({ message: "Match verified and stats updated!", match });
+    }
+
+    await match.save();
+    res.json({
+      message: "Confirmation recorded",
+      current: match.verifications.length,
+      required,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Join a Pending Match (for players left out of the initial lineup)
+app.patch("/api/matches/:matchId/join", async (req, res) => {
+  const { firebaseUid, team } = req.body;
+
+  try {
+    const match = await Match.findById(req.params.matchId);
+    const player = await Player.findOne({ firebaseUid });
+
+    if (!match) return res.status(404).json({ message: "Match not found" });
+    if (!player)
+      return res.status(404).json({ message: "Player profile not found" });
+
+    if (match.status !== "Pending") {
+      return res
+        .status(400)
+        .json({ message: "This match is already verified and locked." });
+    }
+
+    const isAlreadyInA = match.lineups.teamA.some(
+      (id) => id.toString() === player._id.toString()
+    );
+    const isAlreadyInB = match.lineups.teamB.some(
+      (id) => id.toString() === player._id.toString()
+    );
+
+    if (isAlreadyInA || isAlreadyInB) {
+      return res
+        .status(400)
+        .json({ message: "You are already in the lineup." });
+    }
+
+    // 1. Add to the chosen lineup
+    if (team === "teamA") {
+      match.lineups.teamA.push(player._id);
+    } else if (team === "teamB") {
+      match.lineups.teamB.push(player._id);
+    } else {
+      return res.status(400).json({ message: "Invalid team selection." });
+    }
+
+    // 2. Initialize performance entry
+    match.playerPerformance.push({
+      playerId: player._id,
+      goals: 0,
+      assists: 0,
+      isMVP: false,
+    });
+
+    // 3. Update the math & verifications
+    match.expectedConfirmations += 1;
+    if (!match.verifications.includes(firebaseUid)) {
+      match.verifications.push(firebaseUid);
+    }
+
+    // 4. NEW: CHECK FOR CONSENSUS
+    const confirmedCount = match.verifications.length;
+    const requiredCount = Math.ceil(match.expectedConfirmations * 0.75);
+
+    if (confirmedCount >= requiredCount) {
+      match.status = "Verified";
+
+      // 5. UPDATE ALL PLAYER STATS
+      // We loop through everyone in the match and update their career totals
+      const updatePromises = match.playerPerformance.map(async (perf) => {
+        const isTeamA = match.lineups.teamA.includes(perf.playerId);
+
+        let result = "draw";
+        if (match.score.teamA > match.score.teamB) {
+          result = isTeamA ? "win" : "loss";
+        } else if (match.score.teamB > match.score.teamA) {
+          result = isTeamA ? "loss" : "win";
+        }
+
+        return Player.findByIdAndUpdate(perf.playerId, {
+          $inc: {
+            "careerStats.matchesPlayed": 1,
+            "careerStats.goals": perf.goals,
+            "careerStats.assists": perf.assists,
+            "careerStats.wins": result === "win" ? 1 : 0,
+            "careerStats.losses": result === "loss" ? 1 : 0,
+            "careerStats.draws": result === "draw" ? 1 : 0,
+          },
+        });
+      });
+
+      await Promise.all(updatePromises);
+      console.log(
+        `Match ${match._id} has been verified via Join! Stats updated.`
+      );
+    }
+
+    await match.save();
+
+    res.json({
+      message: `Successfully joined Team ${team === "teamA" ? "A" : "B"}. ${
+        match.status === "Verified" ? "Match is now Verified!" : ""
+      }`,
+      match,
+    });
+  } catch (err) {
+    console.error("Join Error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get all pending matches for an area
+app.get("/api/matches/pending/:areaId", async (req, res) => {
+  try {
+    const { areaId } = req.params;
+    console.log("Searching for pending matches in area:", areaId);
+    const matches = await Match.find({
+      areaId: req.params.areaId,
+      status: "Pending",
+    }).sort({ createdAt: 1 }); // Changed from -1 to 1 for oldest first
+    res.json(matches);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get data for Match Details
+app.get("/api/matches/:id", async (req, res) => {
+  try {
+    const match = await Match.findById(req.params.id)
+      .populate("lineups.teamA", "diskiName position") // Get names/positions for lineup
+      .populate("lineups.teamB", "diskiName position")
+      .populate("playerPerformance.playerId", "diskiName"); // Get names for stats
+
+    if (!match) {
+      return res.status(404).json({ message: "Match not found" });
+    }
+
+    res.json(match);
+  } catch (err) {
+    console.error("Fetch Match Error:", err);
+    res.status(500).json({ message: "Server error fetching match details" });
+  }
+});
+
+// Change the path to include /api/matches
+// GET /api/matches/area/:areaName
+app.get("/api/matches/area/:areaName", async (req, res) => {
+  try {
+    const { areaName } = req.params;
+
+    const matches = await Match.find({
+      areaId: { $regex: new RegExp(`^${areaName}$`, "i") },
+    })
+      .sort({ createdAt: -1 })
+      // Use dot notation for nested fields
+      .populate("lineups.teamA")
+      .populate("lineups.teamB");
+
+    res.json(matches || []);
+  } catch (error) {
+    console.error("Area Fetch Error:", error);
+    res.status(500).json({ message: "Error fetching area matches" });
+  }
+});
+
+// ****************************************************
+// Helper Functions
+// Add this helper function to your index.js (or a utils file)
+async function finalizeMatchStats(match) {
+  const Player = require("./models/Player");
+
+  // 1. Fetch current ratings for all players in this match to check the 75-threshold and 99-cap
+  const playerIds = match.playerPerformance.map((p) => p.playerId);
+  const players = await Player.find({ _id: { $in: playerIds } });
+
+  // Create a quick lookup map for player data
+  const playerMap = {};
+  players.forEach((p) => {
+    playerMap[p._id.toString()] = p;
+  });
+
+  const isDraw = match.score.teamA === match.score.teamB;
+  const teamAWins = match.score.teamA > match.score.teamB;
+  const teamBWins = match.score.teamB > match.score.teamA;
+
+  // 2. Map performance to bulk operations
+  const operations = match.playerPerformance
+    .map((perf) => {
+      const currentPlayer = playerMap[perf.playerId.toString()];
+      if (!currentPlayer) return null;
+
+      const isTeamA = match.lineups.teamA.some(
+        (id) => id.toString() === perf.playerId.toString()
+      );
+
+      // Determine Match Outcome
+      let winInc = 0,
+        lossInc = 0,
+        drawInc = 0,
+        skillBonus = 0;
+      const matchResult = winInc ? "W" : drawInc ? "D" : "L";
+
+      if (isDraw) {
+        drawInc = 1;
+        skillBonus = 0.2;
+      } else if (isTeamA) {
+        teamAWins
+          ? ((winInc = 1), (skillBonus = 1.5))
+          : ((lossInc = 1), (skillBonus = -0.5));
+      } else {
+        teamBWins
+          ? ((winInc = 1), (skillBonus = 1.5))
+          : ((lossInc = 1), (skillBonus = -0.5));
+      }
+
+      // Calculate Raw Deltas
+      let tDelta = perf.goals * 1.5 + perf.assists * 1.0 + (perf.isMVP ? 2 : 0);
+      let rDelta = skillBonus + (perf.isMVP ? 2 : 0);
+      let pDelta = (skillBonus > 0 ? 0.5 : 0) + (perf.goals > 0 ? 0.3 : 0);
+      let paceDelta = perf.goals > 1 ? 0.5 : 0.1;
+
+      // --- APPLY DIMINISHING RETURNS (The "75 Rule") ---
+      // If a rating is already 75 or higher, cut the gain by 50%
+      if (currentPlayer.ratings.technical >= 75) tDelta *= 0.5;
+      if (currentPlayer.ratings.reliability >= 75) rDelta *= 0.5;
+      if (currentPlayer.ratings.physical >= 75) pDelta *= 0.5;
+      if (currentPlayer.ratings.pace >= 75) paceDelta *= 0.5;
+
+      // --- APPLY HARD CAP PROTECTION (The "99 Rule") ---
+      // Ensure the increment doesn't push them over 99
+      const capAt99 = (current, delta) => {
+        if (current + delta > 99) return 99 - current;
+        if (current + delta < 0) return -current; // Don't go below 0
+        return delta;
+      };
+
+      return {
+        updateOne: {
+          filter: { _id: perf.playerId },
+          update: {
+            $inc: {
+              "careerStats.goals": perf.goals || 0,
+              "careerStats.assists": perf.assists || 0,
+              "careerStats.matchesPlayed": 1,
+              "careerStats.mvps": perf.isMVP ? 1 : 0,
+              "careerStats.wins": winInc,
+              "careerStats.losses": lossInc,
+              "careerStats.draws": drawInc,
+              // Increments adjusted for the 99 cap
+              "ratings.technical": capAt99(
+                currentPlayer.ratings.technical,
+                tDelta
+              ),
+              "ratings.reliability": capAt99(
+                currentPlayer.ratings.reliability,
+                rDelta
+              ),
+              "ratings.physical": capAt99(
+                currentPlayer.ratings.physical,
+                pDelta
+              ),
+              "ratings.pace": capAt99(currentPlayer.ratings.pace, paceDelta),
+            },
+            $set: {
+              "lastChange.technical": tDelta,
+              "lastChange.reliability": rDelta,
+              "lastChange.physical": pDelta,
+              "lastChange.pace": paceDelta,
+            },
+            $push: {
+              form: {
+                $each: [matchResult],
+                $slice: -5, // Keeps only the last 5 entries
+              },
+            },
+          },
+        },
+      };
+    })
+    .filter((op) => op !== null);
+
+  if (operations.length > 0) {
+    await Player.bulkWrite(operations);
+    console.log(
+      `✅ Stats & Ratings (with diminishing returns) updated for ${operations.length} players.`
+    );
+  }
+}
+
+// ****************************************************
+// Server Start
 app.get("/api/test", (req, res) => {
   res.json({
     status: `⚽ DiskiRater server running on port ${PORT}`,

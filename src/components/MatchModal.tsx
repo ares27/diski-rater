@@ -1,5 +1,6 @@
 // MatchModal.tsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Modal,
@@ -29,6 +30,7 @@ const MatchModal = ({
   const [localT1, setLocalT1] = useState<Player[]>([]);
   const [localT2, setLocalT2] = useState<Player[]>([]);
   const [mode, setMode] = useState<"balanced" | "random">("balanced");
+  const navigate = useNavigate();
 
   useEffect(() => {
     setLocalT1(initialT1);
@@ -85,6 +87,18 @@ const MatchModal = ({
 
     navigator.clipboard.writeText(text);
     alert("Lineups copied!");
+  };
+
+  const handleStartMatch = () => {
+    // 1. Close the modal first
+    onHide();
+
+    navigate("/log-match", {
+      state: {
+        team1: localT1,
+        team2: localT2,
+      },
+    });
   };
 
   return (
@@ -145,13 +159,22 @@ const MatchModal = ({
         >
           🔄 Re-Shuffle
         </Button>
-        <Button
-          variant="success"
-          className="fw-bold px-4 rounded-pill shadow-sm"
-          onClick={generateShareText}
-        >
-          Copy Lineups 📱
-        </Button>
+        <div className="d-flex gap-2">
+          <Button
+            variant="warning"
+            className="fw-bold px-4 rounded-pill shadow-sm"
+            onClick={generateShareText}
+          >
+            Copy Lineups 📱
+          </Button>
+          <Button
+            variant="success"
+            className="fw-bold px-4 rounded-pill shadow-sm"
+            onClick={handleStartMatch}
+          >
+            Start Match ⚽
+          </Button>
+        </div>
       </Modal.Footer>
     </Modal>
   );

@@ -5,6 +5,10 @@ import { SquadPage } from "../pages/SquadPage";
 import { CaptainTools } from "../pages/CaptainTools";
 import { SuggestionsBoard } from "../pages/SuggestionsBoard";
 import { UserDashboard } from "../pages/UserDashboard";
+import { LogMatch } from "../components/LogMatch";
+import { PendingMatches } from "../pages/PendingMatches";
+import { MatchDetails } from "../pages/MatchDetails";
+import { AreaMatches } from "../components/AreaMatches";
 
 interface AppRoutesProps {
   // Pass all the state and functions down as props
@@ -41,6 +45,29 @@ export const AppRoutes = ({
             <Navigate to="/" />
           )
         }
+      />
+
+      {/* LOG NEW MATCH */}
+      <Route
+        path="/log-match"
+        element={user ? <LogMatch /> : <Navigate to="/" />}
+      />
+
+      {/* NEW: PENDING MATCHES LIST */}
+      <Route
+        path="/pending-matches"
+        element={user ? <PendingMatches /> : <Navigate to="/" />}
+      />
+
+      <Route
+        path="/area/:areaName"
+        element={user ? <AreaMatches /> : <Navigate to="/" />}
+      />
+
+      {/* NEW: MATCH DETAILS PAGE */}
+      <Route
+        path="/match-details/:id"
+        element={user ? <MatchDetails /> : <Navigate to="/" />}
       />
 
       {/* 5. USER HOME / DASHBOARD - Redirect to / instead of /login */}
