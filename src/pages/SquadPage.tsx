@@ -116,6 +116,8 @@ export const SquadPage = ({
               🔍
             </InputGroup.Text>
             <Form.Control
+              id="player-search-input" // Added ID
+              aria-label="Search for players by name or position"
               placeholder={`Search in ${userArea || "area"}...`}
               className="border-start-0 ps-0"
               value={searchTerm}
@@ -162,6 +164,17 @@ export const SquadPage = ({
             ) : (
               <Row>
                 {filteredPlayers.map((player) => {
+                  // 1. Get the raw stats
+                  const rawRatings = player.ratings || {};
+
+                  // 2. Create a new object with rounded values for individual attributes
+                  const roundedRatings = Object.keys(rawRatings).reduce(
+                    (acc: any, key) => {
+                      acc[key] = Math.round(rawRatings[key]);
+                      return acc;
+                    },
+                    {}
+                  );
                   const stats = Object.values(player.ratings || {});
                   const playerOverall =
                     stats.length > 0
@@ -172,7 +185,7 @@ export const SquadPage = ({
                   return (
                     <Col key={player._id || player.id} xs={12} className="mb-3">
                       <PlayerCard
-                        player={player}
+                        player={{ ...player, ratings: roundedRatings }}
                         onRate={handleRateClick}
                         onToggleSelect={handleToggleSelect}
                         // Added a console log here temporarily to debug
