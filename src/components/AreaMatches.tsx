@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Container, Card, Badge, Spinner, Row, Col } from "react-bootstrap";
+import { getAreaMatches } from "../api/api";
 
 export const AreaMatches = () => {
   const { areaName } = useParams();
@@ -9,15 +10,11 @@ export const AreaMatches = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_URL;
-    const fetchUrl = `${baseUrl.replace(
-      /\/$/,
-      ""
-    )}/api/matches/area/${areaName}`;
+    if (!areaName) return;
 
     setLoading(true);
-    fetch(fetchUrl)
-      .then((res) => res.json())
+    // 2. Use the imported function instead of manual fetch
+    getAreaMatches(areaName)
       .then((data) => {
         setMatches(Array.isArray(data) ? data : []);
         setLoading(false);

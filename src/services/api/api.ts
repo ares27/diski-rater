@@ -175,3 +175,10 @@ export const claimCaptaincyApi = (data: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   }).then((res) => res.json());
+
+// Add this to your api.ts
+export const getAreaMatches = (areaName: string) =>
+  fetch(`${API_URL}/api/matches/area/${areaName}`).then((res) => {
+    if (!res.ok) throw new Error("Failed to fetch area matches");
+    return res.json();
+  });
