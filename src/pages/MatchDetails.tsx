@@ -13,6 +13,7 @@ import {
   ButtonGroup,
 } from "react-bootstrap";
 import { auth } from "../firebase/config";
+import { getMatchDetails } from "../services/api/api";
 
 export const MatchDetails = () => {
   const { id } = useParams();
@@ -26,13 +27,19 @@ export const MatchDetails = () => {
   const myPlayerId = userProfile.linkedPlayerId;
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/matches/${id}`)
-      .then((res) => res.json())
+    if (!id) return;
+
+    setLoading(true);
+    // 2. Use the imported function
+    getMatchDetails(id)
       .then((data) => {
         setMatch(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        console.error("Match fetch error:", err);
+        setLoading(false);
+      });
   }, [id]);
 
   if (loading)
