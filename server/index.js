@@ -630,7 +630,6 @@ async function finalizeMatchStats(match) {
         lossInc = 0,
         drawInc = 0,
         skillBonus = 0;
-      const matchResult = winInc ? "W" : drawInc ? "D" : "L";
 
       if (isDraw) {
         drawInc = 1;
@@ -644,6 +643,8 @@ async function finalizeMatchStats(match) {
           ? ((winInc = 1), (skillBonus = 1.5))
           : ((lossInc = 1), (skillBonus = -0.5));
       }
+
+      const matchResult = winInc ? "W" : drawInc ? "D" : "L";
 
       // Calculate Raw Deltas
       let tDelta = perf.goals * 1.5 + perf.assists * 1.0 + (perf.isMVP ? 2 : 0);

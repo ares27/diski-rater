@@ -39,6 +39,8 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
   };
 
   const FormDot = ({ result }: { result: string }) => {
+    // Normalize the input: convert to uppercase and remove spaces
+    const normalizedResult = result?.trim().toUpperCase();
     const colors: Record<string, string> = {
       W: "bg-success", // Green
       L: "bg-danger", // Red
@@ -48,7 +50,7 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
     return (
       <div
         className={`${
-          colors[result] || "bg-light"
+          colors[normalizedResult] || "bg-light"
         } rounded-circle d-inline-block shadow-sm`}
         style={{
           width: "12px",
@@ -56,7 +58,7 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
           margin: "0 2px",
           border: "1px solid rgba(255,255,255,0.2)",
         }}
-        title={result}
+        title={normalizedResult}
       />
     );
   };
@@ -86,7 +88,7 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
         {/* Detailed Stats Bars */}
         <Row className="g-3">
           {stats.map((stat) => {
-            // Mocking the change value - in production, this comes from player.lastChange[stat.label]
+            // Correctly lowercase the label for the lookup
             const change = player.lastChange?.[stat.label.toLowerCase()] || 0;
             return (
               <Col xs={6} key={stat.label}>
@@ -109,7 +111,7 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
                       </span>
                     )}
                     <span className="small fw-bold">
-                      {Math.floor(stat.value)}
+                      {Math.round(stat.value)}
                     </span>
                   </div>
                 </div>
@@ -184,9 +186,13 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
           </span>
           <div className="d-flex align-items-center">
             {player.form && player.form.length > 0 ? (
-              player.form.map((res: string, idx: number) => (
-                <FormDot key={idx} result={res} />
-              ))
+              player.form.map((res: string, idx: number) => {
+                console.log(
+                  `Player ${player.diskiName} Match ${idx} Result:`,
+                  `"${res}"`
+                );
+                return <FormDot key={idx} result={res} />;
+              })
             ) : (
               <small className="text-muted" style={{ fontSize: "0.6rem" }}>
                 No recent matches
