@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Container, Card, Badge, Spinner, Row, Col } from "react-bootstrap";
-import { getAreaMatches } from "../api/api";
+import { getAreaMatches } from "../services/api/api";
 
 export const AreaMatches = () => {
   const { areaName } = useParams();
