@@ -10,7 +10,7 @@ import {
   Spinner,
 } from "react-bootstrap";
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Added Link
 import {
   getSuggestions,
   createSuggestion,
@@ -28,23 +28,19 @@ export const SuggestionsBoard = () => {
   );
   const navigate = useNavigate();
 
-  // 1. Memoized Load function for reuse
   const loadSuggestions = useCallback(async () => {
-    // A. Immediate Load from Cache
     const cached = localStorage.getItem("diski_suggestions_cache");
     if (cached) {
       setSuggestions(JSON.parse(cached));
-      setLoading(false); // Hide spinner early if we have cache
+      setLoading(false);
     }
 
     try {
-      // B. Fetch fresh data
       const data = await getSuggestions();
       const sorted = (data || []).sort(
         (a: any, b: any) => (b.upvotes || 0) - (a.upvotes || 0)
       );
 
-      // C. Update State and Cache
       setSuggestions(sorted);
       localStorage.setItem("diski_suggestions_cache", JSON.stringify(sorted));
     } catch (err) {
@@ -75,7 +71,6 @@ export const SuggestionsBoard = () => {
 
   const handleUpvote = async (id: string) => {
     if (votedItems.includes(id)) return;
-
     const originalSuggestions = [...suggestions];
     setSuggestions((prev) =>
       prev.map((s) =>
@@ -88,13 +83,9 @@ export const SuggestionsBoard = () => {
       const newVotes = [...votedItems, id];
       setVotedItems(newVotes);
       localStorage.setItem("votedSuggestions", JSON.stringify(newVotes));
-
-      // Sync local state with server response
       setSuggestions((prev) => prev.map((s) => (s._id === id ? updated : s)));
     } catch (err) {
-      // Revert if API fails
       setSuggestions(originalSuggestions);
-      alert("Could not upvote while offline.");
     }
   };
 
@@ -111,48 +102,40 @@ export const SuggestionsBoard = () => {
       await createSuggestion({
         text: newText,
         category,
-        // @ts-ignore (if type is strict)
         area: area,
-        status: "Pending",
       });
 
       setNewText("");
       setShowModal(false);
       loadSuggestions();
     } catch (err: any) {
-      console.error("Submission error:", err);
       alert(`Error: ${err.message || "Check connection"}`);
     }
   };
 
   return (
     <div className="bg-light min-vh-100 pb-5">
-      {/* HEADER */}
-      <div className="bg-white border-bottom py-3 mb-4 shadow-sm sticky-top">
-        <Container className="d-flex justify-content-between align-items-center">
+      {/* SEAMLESS HEADER */}
+      <div className="bg-white border-bottom py-4 mb-4 shadow-sm">
+        <Container className="d-flex justify-content-between align-items-end">
           <div>
-            <h4 className="fw-bold mb-0">
+            <h2 className="fw-bold mb-0">
               ⚽ DiskiRater <span className="text-success">Board</span>
-            </h4>
-            <small className="text-muted">Community Roadmap</small>
-          </div>
-          <div className="d-flex gap-2">
-            <Button
-              variant="success"
-              size="sm"
-              className="fw-bold px-3 shadow-sm"
-              onClick={() => setShowModal(true)}
+            </h2>
+            <Link
+              to="/home"
+              className="text-decoration-none small fw-bold text-muted hover-success"
             >
-              + Post Idea
-            </Button>
-            <Button
-              variant="outline-dark"
-              size="sm"
-              onClick={() => navigate("/home")}
-            >
-              {"<<"} Back
-            </Button>
+              ← Back to Dashboard
+            </Link>
           </div>
+          <Button
+            variant="success"
+            className="fw-bold px-4 rounded-pill shadow-sm"
+            onClick={() => setShowModal(true)}
+          >
+            + Post Idea
+          </Button>
         </Container>
       </div>
 
@@ -161,16 +144,15 @@ export const SuggestionsBoard = () => {
           <div className="text-center py-5">
             <Spinner animation="border" variant="success" />
           </div>
-        ) : suggestions.length === 0 ? (
-          <div className="text-center py-5 border rounded bg-white shadow-sm">
-            <p className="text-muted mb-0">No suggestions yet. Be the first!</p>
-          </div>
         ) : (
-          <Row>
+          <Row className="g-4">
             {suggestions.map((s: any) => (
-              <Col xs={12} md={6} lg={4} key={s._id} className="mb-4">
-                <Card className="h-100 border-0 shadow-sm hover-shadow transition">
-                  <Card.Header className="bg-white border-0 pt-3 d-flex justify-content-between align-items-center">
+              <Col xs={12} md={6} lg={4} key={s._id}>
+                <Card
+                  className="h-100 border-0 shadow-sm"
+                  style={{ borderRadius: "20px", overflow: "hidden" }}
+                >
+                  <Card.Header className="bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
                     <Badge
                       bg={
                         s.category === "Bug"
@@ -179,36 +161,41 @@ export const SuggestionsBoard = () => {
                           ? "info"
                           : "secondary"
                       }
-                      className="text-uppercase"
+                      className="rounded-pill px-3"
+                      style={{ fontSize: "0.65rem" }}
                     >
                       {s.category}
                     </Badge>
-                    {/* Update 1: Display the Area on the card */}
-                    {/* <small
-                      className="text-muted fw-bold"
-                      style={{ fontSize: "0.65rem" }}
-                    >
-                      📍 {s.area || "General"}
-                    </small> */}
                     <Badge
-                      pill
                       bg={getStatusColor(s.status)}
-                      style={{ fontSize: "0.7rem" }}
+                      className="rounded-pill opacity-75"
+                      style={{ fontSize: "0.65rem" }}
                     >
                       {s.status || "Pending"}
                     </Badge>
                   </Card.Header>
-                  <Card.Body>
-                    <p className="mb-0 fw-bold" style={{ fontSize: "1.05rem" }}>
+
+                  <Card.Body className="px-4 py-3">
+                    <h5
+                      className="mb-0 fw-bold text-dark"
+                      style={{ lineHeight: "1.4" }}
+                    >
                       "{s.text}"
-                    </p>
+                    </h5>
                   </Card.Body>
-                  <Card.Footer className="bg-white border-0 pb-3 d-flex justify-content-between align-items-center">
-                    <small className="text-muted small">
+
+                  <Card.Footer className="bg-white border-0 pb-4 px-4 d-flex justify-content-between align-items-center">
+                    <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                      <span
+                        className="d-block fw-bold text-uppercase opacity-50"
+                        style={{ fontSize: "0.55rem" }}
+                      >
+                        Posted
+                      </span>
                       {s.createdAt
                         ? new Date(s.createdAt).toLocaleDateString()
                         : "Recent"}
-                    </small>
+                    </div>
                     <Button
                       variant={
                         votedItems.includes(s._id)
@@ -216,7 +203,7 @@ export const SuggestionsBoard = () => {
                           : "outline-success"
                       }
                       size="sm"
-                      className="rounded-pill px-3 fw-bold"
+                      className="rounded-pill px-3 fw-bold border-2"
                       onClick={() => handleUpvote(s._id)}
                       disabled={votedItems.includes(s._id)}
                     >
@@ -230,18 +217,27 @@ export const SuggestionsBoard = () => {
         )}
       </Container>
 
-      {/* MODAL */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-        <Modal.Header closeButton className="border-0">
+      {/* MODAL (Styled to match) */}
+      <Modal
+        show={showModal}
+        onHide={() => setShowModal(false)}
+        centered
+        border-0
+      >
+        <Modal.Header closeButton className="border-0 px-4 pt-4">
           <Modal.Title className="fw-bold">Share an Idea</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
-          <Modal.Body>
+          <Modal.Body className="px-4">
             <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold text-muted">
-                CATEGORY
+              <Form.Label
+                className="small fw-bold text-muted text-uppercase"
+                style={{ fontSize: "0.65rem" }}
+              >
+                Category
               </Form.Label>
               <Form.Select
+                className="rounded-3 border-2"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
               >
@@ -251,29 +247,37 @@ export const SuggestionsBoard = () => {
               </Form.Select>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold text-muted">
-                YOUR FEEDBACK
+              <Form.Label
+                className="small fw-bold text-muted text-uppercase"
+                style={{ fontSize: "0.65rem" }}
+              >
+                Details
               </Form.Label>
               <Form.Control
                 as="textarea"
-                rows={3}
-                placeholder="How can we improve the game?"
+                rows={4}
+                className="rounded-3 border-2"
+                placeholder="What's on your mind?"
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
                 required
               />
             </Form.Group>
           </Modal.Body>
-          <Modal.Footer className="border-0">
-            <Button variant="light" onClick={() => setShowModal(false)}>
+          <Modal.Footer className="border-0 px-4 pb-4">
+            <Button
+              variant="light"
+              className="fw-bold rounded-pill"
+              onClick={() => setShowModal(false)}
+            >
               Cancel
             </Button>
             <Button
               variant="success"
               type="submit"
-              className="px-4 fw-bold shadow-sm"
+              className="px-4 fw-bold rounded-pill shadow-sm"
             >
-              Post Suggestion
+              Submit Idea
             </Button>
           </Modal.Footer>
         </Form>

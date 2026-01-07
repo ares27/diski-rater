@@ -419,60 +419,54 @@ function App() {
           bg="success"
           variant="dark"
           expand="lg"
-          className="mb-4 shadow-sm sticky-top"
+          className="mb-4 shadow-sm sticky-top px-0"
         >
           <Container>
-            <Navbar.Brand as={Link} to="/" className="fw-bold">
-              ⚽ DiskiRater
-            </Navbar.Brand>
-            {/* --- CENTERED VERSION BADGE --- */}
-            <div
-              className="position-absolute start-50 translate-middle-x d-flex align-items-center"
-              style={{ top: "50%", transform: "translateY(-50%)" }}
-            >
+            {/* --- BRAND & VERSION GROUP --- */}
+            <div className="d-flex align-items-center">
+              <Navbar.Brand as={Link} to="/" className="fw-bold me-2">
+                ⚽ DiskiRater
+              </Navbar.Brand>
               <Badge
                 bg="light"
                 text="dark"
-                style={{ fontSize: "0.6rem", opacity: 0.9 }}
+                className="fw-normal"
+                style={{
+                  fontSize: "0.55rem",
+                  verticalAlign: "middle",
+                  opacity: 0.8,
+                }}
               >
                 v{version}
               </Badge>
-
-              {isOffline && (
-                <Badge
-                  bg="warning"
-                  text="dark"
-                  className="ms-2 d-none d-md-inline"
-                >
-                  Offline Mode
-                </Badge>
-              )}
             </div>
 
             {/* Mobile Toggle Button */}
-            <Navbar.Toggle aria-controls="main-navbar-nav" />
+            <Navbar.Toggle
+              aria-controls="main-navbar-nav"
+              className="border-0"
+            />
 
             {/* Collapsible Content */}
             <Navbar.Collapse id="main-navbar-nav">
-              <Nav className="ms-auto align-items-center gap-2 py-2 py-lg-0">
+              <Nav className="ms-auto align-items-center py-3 py-lg-0">
                 {/* Navigation Links */}
-                <Nav.Link as={Link} to="/home" className="text-white px-3">
+                <Nav.Link
+                  as={Link}
+                  to="/home"
+                  className="text-white px-3 w-100 text-center text-lg-start border-bottom border-white border-opacity-10 border-lg-0 py-2 py-lg-0"
+                >
                   Dashboard
                 </Nav.Link>
-                {/*
-                <Nav.Link as={Link} to="/squad" className="text-white px-3">
-                  Squad
-                </Nav.Link>
-                */}
 
-                {/* Separator for desktop, hidden on mobile */}
+                {/* Separator for desktop only */}
                 <div
-                  className="vr d-none d-lg-block mx-2 text-white opacity-25"
+                  className="vr d-none d-lg-block mx-3 text-white opacity-25"
                   style={{ height: "20px" }}
                 ></div>
 
-                {/* Action Icons Group */}
-                <div className="d-flex align-items-center gap-3 mt-2 mt-lg-0">
+                {/* Action Group: Inline on all screens */}
+                <div className="d-flex align-items-center justify-content-center gap-4 mt-3 mt-lg-0">
                   {/* Suggestions Board */}
                   <OverlayTrigger
                     placement="bottom"
@@ -480,11 +474,13 @@ function App() {
                   >
                     <Link
                       to="/board"
-                      className="text-white text-decoration-none fs-5"
+                      className="text-white text-decoration-none fs-5 transition-opacity"
+                      style={{ opacity: 0.9 }}
                     >
                       💡
                     </Link>
                   </OverlayTrigger>
+
                   {/* Sync Indicator */}
                   <OverlayTrigger
                     placement="bottom"
@@ -496,53 +492,34 @@ function App() {
                       </Tooltip>
                     }
                   >
-                    <div className="d-flex align-items-center ms-2">
+                    <div className="d-flex align-items-center">
                       <div
                         style={{
                           width: "10px",
                           height: "10px",
                           borderRadius: "50%",
-                          backgroundColor: isSynced ? "#2ecc71" : "#f39c12", // Green vs Orange
+                          backgroundColor: isSynced ? "#2ecc71" : "#f39c12",
                           boxShadow: isSynced
                             ? "0 0 5px #2ecc71"
                             : "0 0 8px #f39c12",
-                          transition: "all 0.3s ease",
                         }}
                       />
+                      {isOffline && (
+                        <span
+                          className="ms-2 text-white d-lg-none"
+                          style={{ fontSize: "0.75rem" }}
+                        >
+                          Offline
+                        </span>
+                      )}
                     </div>
                   </OverlayTrigger>
-
-                  {/* Captain's Quick Add */}
-                  {/* {userRole === "Captain" && (
-                    <OverlayTrigger
-                      placement="bottom"
-                      overlay={<Tooltip>Add player to {userArea}</Tooltip>}
-                    >
-                      <Button
-                        variant="light"
-                        size="sm"
-                        className="d-flex align-items-center justify-content-center fw-bold shadow-sm"
-                        style={{
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "50%",
-                          padding: 0,
-                          border: "2px solid #fff",
-                        }}
-                        onClick={() => setShowAddModal(true)}
-                      >
-                        <span style={{ fontSize: "1.2rem", marginTop: "-2px" }}>
-                          +
-                        </span>
-                      </Button>
-                    </OverlayTrigger>
-                  )} */}
 
                   {/* Logout Button */}
                   <Button
                     variant="outline-light"
                     size="sm"
-                    className="fw-bold ms-lg-2"
+                    className="fw-bold px-3 rounded-pill"
                     onClick={handleLogout}
                   >
                     Logout
