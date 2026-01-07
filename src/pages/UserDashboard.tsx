@@ -34,20 +34,71 @@ const getScoutReport = (ratings: any) => {
   const max = Math.max(pace, technical, physical, reliability);
 
   let archetype = "All-Rounder";
-  let analysis = "You provide a solid balance to any squad.";
+  let analysis =
+    "You provide a solid balance to any squad, capable of filling multiple roles.";
 
-  if (max === pace && pace > 70) {
+  // --- 1. HYBRID ARCHETYPES (Combined Strengths) ---
+
+  if (pace > 75 && technical > 75) {
+    archetype = "The Wing Wizard";
+    analysis =
+      "A deadly combination of raw speed and close control; you're a nightmare for fullbacks.";
+  } else if (technical > 75 && physical > 75) {
+    archetype = "The Maestro";
+    analysis =
+      "You possess the strength to hold off challenges and the skill to dictate the tempo.";
+  } else if (physical > 75 && reliability > 75) {
+    archetype = "The General";
+    analysis =
+      "A leader on the pitch who wins every battle and never lets their intensity drop.";
+  } else if (pace > 75 && reliability > 75) {
+    archetype = "The Box-to-Box Specialist";
+    analysis =
+      "You have the lungs to cover every blade of grass and the speed to join every attack.";
+  }
+
+  // --- 2. ELITE SPECIALISTS (Single Peak) ---
+  else if (max === pace && pace > 80) {
     archetype = "The Speedster";
-    analysis = "Your pace is a massive threat on the counter-attack.";
-  } else if (max === technical && technical > 70) {
+    analysis =
+      "Your explosive pace is a massive threat on the counter-attack and breaks defensive lines.";
+  } else if (max === technical && technical > 80) {
     archetype = "The Playmaker";
-    analysis = "You have the vision to unlock tight defenses.";
-  } else if (max === physical && physical > 70) {
+    analysis =
+      "You have the elite vision and technical touch required to unlock the tightest defenses.";
+  } else if (max === physical && physical > 80) {
     archetype = "The Enforcer";
-    analysis = "You dominate the physical duels in the middle of the park.";
-  } else if (max === reliability && reliability > 70) {
+    analysis =
+      "You dominate the physical duels and provide the steel your team needs in the middle.";
+  } else if (max === reliability && reliability > 80) {
     archetype = "The Engine";
-    analysis = "Your work rate ensures the team stays solid.";
+    analysis =
+      "The most consistent player on the pitch. Your work rate ensures the team remains solid.";
+  }
+
+  // --- 3. THE "RISING STAR" (For lower overall but high potential) ---
+  else if (max < 65 && reliability > 60) {
+    archetype = "The Hard Worker";
+    analysis =
+      "You might still be honing your skills, but your discipline makes you a coach's favorite.";
+  } else if (max < 65 && pace > 65) {
+    archetype = "The Raw Talent";
+    analysis =
+      "You have the natural speed to cause trouble; once the technical side clicks, you'll be unstoppable.";
+  } else if (max < 65) {
+    archetype = "The Prospect";
+    analysis =
+      "You're finding your feet on the pitch. Focus on your consistency to unlock your true potential.";
+  }
+
+  // This handles players who have one "Pro" level stat while the rest are low
+  else if (
+    max > 75 &&
+    max - (pace + technical + physical + reliability) / 4 > 15
+  ) {
+    archetype = "The Hidden Gem";
+    analysis =
+      "You have one elite attribute that stands out. Use that weapon to change the game!";
   }
 
   return { archetype, analysis, overall: Math.round(avg) };
