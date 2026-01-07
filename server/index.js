@@ -100,7 +100,7 @@ app.post("/api/suggestions", async (req, res) => {
 
 // Create New Users with Auto-Promotion for Pioneers
 app.post("/api/users", async (req, res) => {
-  console.log("📥 Received registration request:", req.body.diskiName);
+  // console.log("📥 Received registration request:", req.body.diskiName);
   try {
     const {
       firebaseUid,
@@ -545,7 +545,7 @@ app.patch("/api/matches/:matchId/join", async (req, res) => {
 app.get("/api/matches/pending/:areaId", async (req, res) => {
   try {
     const { areaId } = req.params;
-    console.log("Searching for pending matches in area:", areaId);
+    // console.log("Searching for pending matches in area:", areaId);
     const matches = await Match.find({
       areaId: req.params.areaId,
       status: "Pending",
@@ -575,7 +575,6 @@ app.get("/api/matches/:id", async (req, res) => {
   }
 });
 
-// Change the path to include /api/matches
 // GET /api/matches/area/:areaName
 app.get("/api/matches/area/:areaName", async (req, res) => {
   try {

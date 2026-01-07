@@ -9,17 +9,17 @@ export const AreaMatches = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_URL;
+    const fetchUrl = `${baseUrl.replace(
+      /\/$/,
+      ""
+    )}/api/matches/area/${areaName}`;
+
     setLoading(true);
-    fetch(`${import.meta.env.VITE_API_URL}/api/matches/area/${areaName}`)
+    fetch(fetchUrl)
       .then((res) => res.json())
       .then((data) => {
-        // Logic Check: If data is an array, set it. If not (e.g., error object), set empty array.
-        if (Array.isArray(data)) {
-          setMatches(data);
-        } else {
-          console.error("Received non-array data:", data);
-          setMatches([]);
-        }
+        setMatches(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {

@@ -213,7 +213,7 @@ export const UserDashboard = () => {
     return (
       <div className="text-center mt-5">
         <Spinner animation="border" variant="success" />
-        <p className="mt-2 text-muted">Loading Command Centre...</p>
+        <p className="mt-2 text-muted">Loading Diski Centre...</p>
       </div>
     );
 
