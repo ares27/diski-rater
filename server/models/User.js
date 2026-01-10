@@ -5,6 +5,8 @@ const userSchema = new mongoose.Schema(
     firebaseUid: { type: String, required: true, unique: true },
     diskiName: { type: String, required: true },
     position: { type: String, required: true },
+    preferredFoot: { type: String, default: "Right" }, // New
+    kitNumber: { type: String, default: "#?" }, // New
     phoneNumber: { type: String, required: true, unique: true }, // The real number
     email: { type: String, required: true, unique: true },
     role: {

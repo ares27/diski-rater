@@ -5,6 +5,8 @@ const playerSchema = new mongoose.Schema({
   diskiName: { type: String, required: true },
   area: { type: String, required: true },
   position: String,
+  preferredFoot: { type: String, default: "Right" }, // New
+  kitNumber: { type: String, default: "#?" }, // New
   role: String,
   isSelected: { type: Boolean, default: false },
   ratings: {

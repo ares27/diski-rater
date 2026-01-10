@@ -14,6 +14,7 @@ interface Props {
   onRate: (player: Player) => void;
   onToggleSelect: (playerId: string) => void;
   canRate?: boolean;
+  canEdit?: boolean;
   hideCheck?: boolean;
   isMVP?: boolean;
 }
@@ -23,6 +24,7 @@ const PlayerCard = ({
   onRate,
   onToggleSelect,
   canRate = false,
+  canEdit = false,
   hideCheck = false,
   isMVP = false,
 }: Props) => {
@@ -82,6 +84,21 @@ const PlayerCard = ({
               </span>
             )}
           </div>
+
+          {canEdit && onEdit && (
+            <Button
+              variant="light"
+              className="rounded-circle p-0 d-flex align-items-center justify-content-center border shadow-sm"
+              style={{
+                width: "28px",
+                height: "28px",
+                backgroundColor: "#f8f9fa",
+              }}
+              onClick={() => onEdit(player)}
+            >
+              <span style={{ fontSize: "0.8rem" }}>✏️</span>
+            </Button>
+          )}
 
           {!hideCheck && (
             <div onClick={handleActionClick}>

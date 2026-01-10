@@ -16,7 +16,7 @@ import {
   getPlayers,
   getPendingUsers,
   checkAreaCaptain,
-  claimCaptaincyApi,
+  updateUserProfile,
 } from "../services/api/api";
 import { StatHero } from "../components/StatHero";
 import { useNavigate } from "react-router-dom";
@@ -115,6 +115,13 @@ export const UserDashboard = () => {
   const [areaCaptainData, setAreaCaptainData] = useState<any>(null);
   const [pendingMatches, setPendingMatches] = useState<any[]>([]);
   const isApproved = userData?.status === "Approved";
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editData, setEditData] = useState({
+    diskiName: "",
+    position: "",
+    preferredFoot: "Right",
+    kitNumber: "",
+  });
 
   const navigate = useNavigate();
 
@@ -205,6 +212,18 @@ export const UserDashboard = () => {
     if (displayArea && isApproved) fetchPendingMatches();
   }, [displayArea, isApproved, userData?.linkedPlayerId]);
 
+  // Update the editData whenever playerStats changes
+  useEffect(() => {
+    if (playerStats) {
+      setEditData({
+        diskiName: playerStats.diskiName || "",
+        position: playerStats.position || "MID",
+        preferredFoot: playerStats.preferredFoot || "Right",
+        kitNumber: playerStats.kitNumber || "",
+      });
+    }
+  }, [playerStats]);
+
   const handleCaptainClaim = async () => {
     if (!claimData.social || !claimData.note) {
       alert("Please provide both a social link and a short note.");
@@ -257,6 +276,26 @@ export const UserDashboard = () => {
       }
     } catch (err) {
       alert("Verification failed.");
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    try {
+      if (!userData?.firebaseUid) return;
+
+      // Use the service function instead of manual fetch
+      const updated = await updateUserProfile(userData.firebaseUid, editData);
+
+      // Success logic
+      localStorage.setItem("diski_user_profile", JSON.stringify(updated));
+      setShowEditModal(false);
+
+      // Smooth UI update: notify user before reload
+      alert("Profile Updated!");
+      window.location.reload();
+    } catch (err) {
+      console.error("Update failed", err);
+      alert("Could not update profile. Please try again.");
     }
   };
 
@@ -476,7 +515,12 @@ export const UserDashboard = () => {
               <h6 className="text-muted mb-3 small fw-bold text-uppercase tracking-wider">
                 Scouting Report
               </h6>
-              <StatHero player={playerStats} report={report} />
+              <StatHero
+                player={playerStats}
+                report={report}
+                canEdit={true}
+                onEditClick={() => setShowEditModal(true)}
+              />
             </Col>
 
             <Col lg={7}>
@@ -654,6 +698,97 @@ export const UserDashboard = () => {
           >
             Submit Application
           </Button>
+        </Modal.Body>
+      </Modal>
+
+      {/* UPDATE USER DETAILS MODAL */}
+      <Modal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
+        centered
+      >
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold">Edit Player Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="pt-2">
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label className="small fw-bold text-muted">
+                DISKI NAME
+              </Form.Label>
+              <Form.Control
+                type="text"
+                className="rounded-3"
+                value={editData.diskiName}
+                onChange={(e) =>
+                  setEditData({ ...editData, diskiName: e.target.value })
+                }
+              />
+            </Form.Group>
+            <Row>
+              <Col xs={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="small fw-bold text-muted">
+                    POSITION
+                  </Form.Label>
+                  <Form.Select
+                    className="rounded-3"
+                    value={editData.position}
+                    onChange={(e) =>
+                      setEditData({ ...editData, position: e.target.value })
+                    }
+                  >
+                    <option value="FWD">FWD</option>
+                    <option value="MID">MID</option>
+                    <option value="DEF">DEF</option>
+                    <option value="GK">GK</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col xs={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="small fw-bold text-muted">
+                    PREF. FOOT
+                  </Form.Label>
+                  <Form.Select
+                    className="rounded-3"
+                    value={editData.preferredFoot}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        preferredFoot: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="Right">Right</option>
+                    <option value="Left">Left</option>
+                    <option value="Both">Both</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label className="small fw-bold text-muted">
+                KIT NUMBER
+              </Form.Label>
+              <Form.Control
+                type="text"
+                className="rounded-3"
+                placeholder="e.g. 7"
+                value={editData.kitNumber}
+                onChange={(e) =>
+                  setEditData({ ...editData, kitNumber: e.target.value })
+                }
+              />
+            </Form.Group>
+            <Button
+              variant="success"
+              className="w-100 fw-bold py-2 rounded-3 shadow-sm"
+              onClick={handleProfileUpdate}
+            >
+              Save Changes
+            </Button>
+          </Form>
         </Modal.Body>
       </Modal>
     </Container>

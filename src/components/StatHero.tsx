@@ -1,4 +1,4 @@
-import { Card, Row, Col, ProgressBar, Badge } from "react-bootstrap";
+import { Button, Card, Row, Col, ProgressBar, Badge } from "react-bootstrap";
 
 interface StatHeroProps {
   player: any;
@@ -7,9 +7,16 @@ interface StatHeroProps {
     analysis: string;
     overall: number;
   };
+  canEdit?: boolean;
+  onEditClick?: () => void;
 }
 
-export const StatHero = ({ player, report }: StatHeroProps) => {
+export const StatHero = ({
+  player,
+  report,
+  canEdit,
+  onEditClick,
+}: StatHeroProps) => {
   const stats = [
     { label: "Pace", value: player.ratings?.pace || 0, color: "success" },
     {
@@ -70,6 +77,18 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
     >
       {/* Top Section: Identity */}
       <div className="bg-dark text-white p-4 text-center">
+        {canEdit && (
+          <Button
+            variant="outline-light"
+            size="sm"
+            className="position-absolute top-0 end-0 m-3 rounded-circle border-0"
+            onClick={onEditClick}
+            style={{ opacity: 0.7 }}
+          >
+            ✏️
+          </Button>
+        )}
+
         <Badge bg="success" className="mb-2 px-3 rounded-pill">
           {report.archetype}
         </Badge>
@@ -213,7 +232,7 @@ export const StatHero = ({ player, report }: StatHeroProps) => {
             </small>
           </div>
           <div className="text-center">
-            <div className="fw-bold">{player.foot || "Right"}</div>
+            <div className="fw-bold">{player.preferredFoot || "Right"}</div>
             <small
               className="text-muted text-uppercase"
               style={{ fontSize: "0.6rem" }}

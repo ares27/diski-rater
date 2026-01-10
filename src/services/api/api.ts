@@ -187,3 +187,13 @@ export const getMatchDetails = (matchId: string) =>
     if (!res.ok) throw new Error("Failed to fetch match details");
     return res.json();
   });
+
+export const updateUserProfile = (firebaseUid: string, editData: any) =>
+  fetch(`${API_URL}/api/users/${firebaseUid}/profile`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(editData),
+  }).then((res) => {
+    if (!res.ok) throw new Error("Failed to update profile");
+    return res.json();
+  });

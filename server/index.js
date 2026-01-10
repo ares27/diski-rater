@@ -72,42 +72,6 @@ mongoose
   .then(() => console.info("Connected to MongoDB Atlas"))
   .catch((err) => console.error("Could not connect", err));
 
-// 1. GET all players from Atlas
-app.get("/api/players", async (req, res) => {
-  try {
-    const players = await Player.find().sort({ createdAt: -1 });
-    // console.log(players);
-    res.json(players);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// 2. POST a new player to Atlas
-app.post("/api/players", async (req, res) => {
-  const player = new Player(req.body);
-  try {
-    const newPlayer = await player.save();
-    res.status(201).json(newPlayer);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
-
-// 3. PATCH (Update) a player (e.g., for ratings or selection)
-app.patch("/api/players/:id", async (req, res) => {
-  try {
-    const updatedPlayer = await Player.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    res.json(updatedPlayer);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
-
 // The Password Reset Route
 app.patch(
   "/api/auth/reset-password",
@@ -157,6 +121,77 @@ app.patch(
     }
   }
 );
+
+// *******************************************
+// Users Endpoints
+app.patch("/api/users/:uid/profile", async (req, res) => {
+  const { diskiName, position, preferredFoot, kitNumber } = req.body;
+
+  try {
+    // 1. Update the User Account
+    const updatedUser = await User.findOneAndUpdate(
+      { firebaseUid: req.params.uid },
+      { diskiName, position, preferredFoot, kitNumber },
+      { new: true }
+    );
+
+    // 2. If the user is linked to a Player card, update that too
+    if (updatedUser.linkedPlayerId) {
+      await Player.findByIdAndUpdate(updatedUser.linkedPlayerId, {
+        diskiName,
+        position,
+        preferredFoot,
+        kitNumber,
+      });
+    }
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+});
+
+// *******************************************
+// Players Endpoints
+
+// 1. GET all players from Atlas
+app.get("/api/players", async (req, res) => {
+  try {
+    const players = await Player.find().sort({ createdAt: -1 });
+    // console.log(players);
+    res.json(players);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 2. POST a new player to Atlas
+app.post("/api/players", async (req, res) => {
+  const player = new Player(req.body);
+  try {
+    const newPlayer = await player.save();
+    res.status(201).json(newPlayer);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// 3. PATCH (Update) a player (e.g., for ratings or selection)
+app.patch("/api/players/:id", async (req, res) => {
+  try {
+    const updatedPlayer = await Player.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(updatedPlayer);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// *******************************************
+// Suggestions Endpoints
 
 // Get all suggestions
 app.get("/api/suggestions", async (req, res) => {
