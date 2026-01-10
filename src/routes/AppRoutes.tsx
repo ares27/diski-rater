@@ -9,6 +9,7 @@ import { LogMatch } from "../components/LogMatch";
 import { PendingMatches } from "../pages/PendingMatches";
 import { MatchDetails } from "../pages/MatchDetails";
 import { AreaMatches } from "../components/AreaMatches";
+import { ResetPassword } from "../components/ResetPassword";
 
 interface AppRoutesProps {
   // Pass all the state and functions down as props
@@ -78,6 +79,9 @@ export const AppRoutes = ({
 
       {/* 2. PUBLIC BOARD */}
       <Route path="/board" element={<SuggestionsBoard />} />
+
+      {/* 2. RESET PASSWORD */}
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* ADMIN TOOLS */}
       <Route

@@ -49,7 +49,7 @@ function App() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isSynced, setIsSynced] = useState(true);
 
-  const hideNavbarPaths = ["/", "/login", "/board"];
+  const hideNavbarPaths = ["/", "/login", "/board", "/reset-password"];
   const showNavbar = !hideNavbarPaths.includes(location.pathname);
 
   const {

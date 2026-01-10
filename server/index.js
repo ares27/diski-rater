@@ -4,6 +4,13 @@ const mongoose = require("mongoose");
 const PORT = process.env.PORT || 5000;
 const cors = require("cors");
 const app = express();
+const admin = require("firebase-admin");
+const serviceAccount = require("./firebase/serviceAccountKey.json");
+const rateLimit = require("express-rate-limit");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 require("dotenv").config();
 app.use(express.json());
@@ -32,6 +39,17 @@ app.use(
     credentials: true,
   })
 );
+
+// Define the limit: 5 attempts per 15 minutes per IP
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per window
+  message: {
+    message: "Too many reset attempts. Please try again after 15 minutes.",
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
 
 const Suggestion = require("./models/Suggestions");
 const Player = require("./models/Player");
@@ -80,6 +98,56 @@ app.patch("/api/players/:id", async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 });
+
+// The Password Reset Route
+app.patch(
+  "/api/auth/reset-password",
+  passwordResetLimiter,
+  async (req, res) => {
+    const { phoneNumber, securityPin, newPassword } = req.body;
+
+    try {
+      // 1. Verify BOTH phone and PIN in MongoDB
+      const user = await User.findOne({
+        phoneNumber: phoneNumber.replace(/\s+/g, ""), // Clean whitespace
+        securityPin: securityPin,
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          message: "Invalid phone number or Recovery PIN.",
+        });
+      }
+
+      // 2. Format the email exactly as your frontend does (@diski.local)
+      const cleanPhone = phoneNumber.replace(/\s+/g, "");
+      const shadowEmail = `${cleanPhone}@diski.local`;
+
+      // 3. Update Firebase
+      // We search by email to get the correct UID
+      const firebaseUser = await admin.auth().getUserByEmail(shadowEmail);
+
+      await admin.auth().updateUser(firebaseUser.uid, {
+        password: newPassword,
+      });
+
+      res.json({ message: "Password updated successfully!" });
+    } catch (err) {
+      console.error("Reset Error:", err);
+
+      // Handle case where user exists in DB but not Firebase (shouldn't happen)
+      if (err.code === "auth/user-not-found") {
+        return res
+          .status(404)
+          .json({ message: "Account found, but auth record is missing." });
+      }
+
+      res.status(500).json({
+        message: "An error occurred during password reset.",
+      });
+    }
+  }
+);
 
 // Get all suggestions
 app.get("/api/suggestions", async (req, res) => {
@@ -166,6 +234,7 @@ app.post("/api/users", async (req, res) => {
       role: role || "Player",
       status: finalStatus,
       linkedPlayerId: linkedPlayerId, // Link it immediately for pioneers
+      securityPin: req.body.securityPin, // Store this securely
     });
 
     await newUser.save();

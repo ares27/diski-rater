@@ -15,6 +15,7 @@ export const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [location, setLocation] = useState("Valhalla");
   const [position, setPosition] = useState("MID"); // Default position
+  const [securityPin, setSecurityPin] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -48,6 +49,7 @@ export const LoginPage = () => {
           position: position,
           email: shadowEmail,
           areaId: location,
+          securityPin: securityPin,
           role: "Player",
           status: "Pending",
         });
@@ -98,6 +100,26 @@ export const LoginPage = () => {
 
         <Form onSubmit={handleAuth}>
           {isRegistering && (
+            <Form.Group className="mb-4">
+              <Form.Label className="small fw-bold text-success">
+                Select Your Area
+              </Form.Label>
+              <Form.Select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="border-success"
+              >
+                <option value="Centurion">Centurion</option>
+                <option value="Erasmia">Erasmia</option>
+                <option value="Midrand">Midrand</option>
+                <option value="Rooihuiskraal">Rooihuiskraal</option>
+                <option value="Valhalla">Valhalla</option>
+                <option value="VTH">VTH</option>
+              </Form.Select>
+            </Form.Group>
+          )}
+
+          {isRegistering && (
             <>
               <Form.Group className="mb-3">
                 <Form.Label className="small fw-bold">
@@ -130,7 +152,6 @@ export const LoginPage = () => {
               </Form.Group>
             </>
           )}
-
           <Form.Group className="mb-3">
             <Form.Label className="small fw-bold">Phone Number</Form.Label>
             <Form.Control
@@ -141,7 +162,6 @@ export const LoginPage = () => {
               required
             />
           </Form.Group>
-
           <Form.Group className="mb-3">
             <Form.Label className="small fw-bold">Password</Form.Label>
             <Form.Control
@@ -154,23 +174,37 @@ export const LoginPage = () => {
           </Form.Group>
 
           {isRegistering && (
-            <Form.Group className="mb-4">
-              <Form.Label className="small fw-bold text-success">
-                Select Your Area
+            <Form.Group className="mb-3">
+              <Form.Label className="small fw-bold text-danger">
+                Recovery PIN (4 Digits)
               </Form.Label>
-              <Form.Select
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="border-success"
-              >
-                <option value="Centurion">Centurion</option>
-                <option value="Erasmia">Erasmia</option>
-                <option value="Midrand">VTH</option>
-                <option value="Rooihuiskraal">VTH</option>
-                <option value="Valhalla">Valhalla</option>
-                <option value="VTH">VTH</option>
-              </Form.Select>
+              <Form.Control
+                type="password"
+                pattern="\d{4}"
+                maxLength={4}
+                placeholder="e.g. 1234"
+                value={securityPin}
+                onChange={(e) =>
+                  setSecurityPin(e.target.value.replace(/\D/g, ""))
+                }
+                required
+              />
+              <Form.Text className="text-muted" style={{ fontSize: "0.7rem" }}>
+                Save this! You'll need it if you forget your password.
+              </Form.Text>
             </Form.Group>
+          )}
+
+          {!isRegistering && (
+            <div className="text-end mb-3">
+              <Link
+                to="/reset-password"
+                style={{ fontSize: "0.8rem" }}
+                className="text-success text-decoration-none fw-bold"
+              >
+                Forgot Password?
+              </Link>
+            </div>
           )}
 
           <Button
