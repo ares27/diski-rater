@@ -5,8 +5,17 @@ const PORT = process.env.PORT || 5000;
 const cors = require("cors");
 const app = express();
 const admin = require("firebase-admin");
-const serviceAccount = require("./firebase/serviceAccountKey.json");
 const rateLimit = require("express-rate-limit");
+
+let serviceAccount;
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  // If running on Render, parse the string from environment variables
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} else {
+  // If running locally, use the file (ensure the path is correct)
+  serviceAccount = require("./firebase/serviceAccountKey.json");
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
