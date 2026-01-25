@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Container, Card, Form, Button, Alert, Spinner } from "react-bootstrap";
 import { useNavigate, Link } from "react-router-dom";
+// IMPORT the central API function
+import { resetPasswordApi } from "../services/api/api";
 
 export const ResetPassword = () => {
   const [phone, setPhone] = useState("");
@@ -16,28 +18,20 @@ export const ResetPassword = () => {
     setError("");
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL;
-      const response = await fetch(
-        `${baseUrl.replace(/\/$/, "")}/api/auth/reset-password`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phoneNumber: phone,
-            securityPin: pin,
-            newPassword: newPassword,
-          }),
-        }
-      );
+      // CLEANER: Use the imported API function instead of manual fetch
+      const data = await resetPasswordApi({
+        phoneNumber: phone,
+        securityPin: pin,
+        newPassword: newPassword,
+      });
 
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.message || "Reset failed");
-
-      alert("Password updated! You can now login.");
+      // data is already parsed as JSON by the API helper
+      alert(data.message || "Password updated! You can now login.");
       navigate("/login");
     } catch (err: any) {
-      setError(err.message);
+      // This will now catch both network errors and the "Failed to execute json" error
+      // by handling it inside api.ts
+      setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }

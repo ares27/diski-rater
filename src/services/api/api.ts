@@ -197,3 +197,26 @@ export const updateUserProfile = (firebaseUid: string, editData: any) =>
     if (!res.ok) throw new Error("Failed to update profile");
     return res.json();
   });
+
+// Add this to your api.ts
+export const resetPasswordApi = async (data: {
+  phoneNumber: string;
+  securityPin: string;
+  newPassword: string;
+}) => {
+  const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  // Handle non-OK responses before trying to parse JSON
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || "Reset failed. Please check your PIN.",
+    );
+  }
+
+  return res.json();
+};
