@@ -1,21 +1,48 @@
 import { useEffect, useState } from "react";
-import { Container, Card, Badge, Button, Row, Col } from "react-bootstrap";
+import {
+  Container,
+  Card,
+  Badge,
+  Button,
+  Row,
+  Col,
+  Spinner,
+} from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebase/config";
+// Import the new function
+import { getPendingMatches } from "../services/api/api";
 
 export const PendingMatches = () => {
   const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const userArea =
-    JSON.parse(localStorage.getItem("diski_user_profile") || "{}").area ||
-    JSON.parse(localStorage.getItem("diski_user_profile") || "{}").areaId ||
-    "General";
+
+  // Safely get area from profile
+  const profile = JSON.parse(
+    localStorage.getItem("diski_user_profile") || "{}",
+  );
+  const userArea = profile.area || profile.areaId || "General";
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/matches/pending/${userArea}`)
-      .then((res) => res.json())
-      .then((data) => setMatches(data));
+    setLoading(true);
+    getPendingMatches(userArea)
+      .then((data) => {
+        setMatches(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
   }, [userArea]);
+
+  if (loading) {
+    return (
+      <Container className="py-5 text-center">
+        <Spinner animation="border" variant="success" />
+      </Container>
+    );
+  }
 
   return (
     <Container className="py-4">

@@ -198,7 +198,6 @@ export const updateUserProfile = (firebaseUid: string, editData: any) =>
     return res.json();
   });
 
-// Add this to your api.ts
 export const resetPasswordApi = async (data: {
   phoneNumber: string;
   securityPin: string;
@@ -220,3 +219,9 @@ export const resetPasswordApi = async (data: {
 
   return res.json();
 };
+
+export const getPendingMatches = (area: string) =>
+  fetch(`${API_URL}/api/matches/pending/${area}`).then((res) => {
+    if (!res.ok) throw new Error("Failed to fetch pending matches");
+    return res.json();
+  });
