@@ -166,7 +166,7 @@ export const checkAreaCaptain = (areaId: string) =>
   fetch(`${API_URL}/api/areas/${areaId}/has-captain`).then((res) => res.json());
 
 export const claimCaptaincyApi = (data: {
-  firebaseUid: string;
+  firebaseUid: string | undefined;
   socialLink: string;
   note: string;
 }) =>
@@ -174,7 +174,13 @@ export const claimCaptaincyApi = (data: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
-  }).then((res) => res.json());
+  }).then(async (res) => {
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to claim captaincy");
+    }
+    return res.json();
+  });
 
 export const getAreaMatches = (areaName: string) =>
   fetch(`${API_URL}/api/matches/area/${areaName}`).then((res) => {
@@ -223,5 +229,66 @@ export const resetPasswordApi = async (data: {
 export const getPendingMatches = (area: string) =>
   fetch(`${API_URL}/api/matches/pending/${area}`).then((res) => {
     if (!res.ok) throw new Error("Failed to fetch pending matches");
+    return res.json();
+  });
+
+export const logMatchApi = (matchData: any) =>
+  fetch(`${API_URL}/api/matches`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(matchData),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to submit match");
+    }
+    return res.json();
+  });
+
+export const joinMatchApi = (
+  matchId: string,
+  data: { firebaseUid: string | undefined; team: "teamA" | "teamB" },
+) =>
+  fetch(`${API_URL}/api/matches/${matchId}/join`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to join match lineup");
+    }
+    return res.json();
+  });
+
+export const updateSquadLinkApi = (data: {
+  firebaseUid: string | undefined;
+  newSocialLink: string;
+}) =>
+  fetch(`${API_URL}/api/users/update-squad-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to update squad link");
+    }
+    return res.json();
+  });
+
+export const verifyMatchApi = (
+  matchId: string,
+  firebaseUid: string | undefined,
+) =>
+  fetch(`${API_URL}/api/matches/${matchId}/verify`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ firebaseUid }),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Verification failed");
+    }
     return res.json();
   });

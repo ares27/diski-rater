@@ -17,6 +17,9 @@ import {
   getPendingUsers,
   checkAreaCaptain,
   updateUserProfile,
+  claimCaptaincyApi,
+  verifyMatchApi,
+  getPendingMatches,
 } from "../services/api/api";
 import { StatHero } from "../components/StatHero";
 import { useNavigate } from "react-router-dom";
@@ -149,7 +152,7 @@ export const UserDashboard = () => {
           const areaId = data.areaId || data.area;
           if (areaId) {
             const capStatus = await checkAreaCaptain(areaId);
-            console.log("Captain Status Check:", capStatus); // Add this to debug!
+            // console.log("Captain Status Check:", capStatus); // Add this to debug!
             setAreaHasCaptain(capStatus.hasCaptain);
             setAreaCaptainData(capStatus);
           }
@@ -157,7 +160,7 @@ export const UserDashboard = () => {
           if (data.linkedPlayerId) {
             const allPlayers = await getPlayers();
             const me = allPlayers.find(
-              (p: any) => p._id === data.linkedPlayerId
+              (p: any) => p._id === data.linkedPlayerId,
             );
             if (me) {
               setPlayerStats(me);
@@ -168,7 +171,7 @@ export const UserDashboard = () => {
           if (data.role === "Captain") {
             const pending = await getPendingUsers();
             const areaSpecific = pending.filter(
-              (u: any) => (u.area || u.areaId) === (data.area || data.areaId)
+              (u: any) => (u.area || u.areaId) === (data.area || data.areaId),
             );
             setPendingCount(areaSpecific.length);
           }
@@ -183,33 +186,33 @@ export const UserDashboard = () => {
   }, []);
 
   useEffect(() => {
-    const fetchPendingMatches = async () => {
+    const fetchPendingMatchesData = async () => {
       const user = auth.currentUser;
-      if (!user || !isApproved || !userData?.linkedPlayerId) return;
+      // Guard clause
+      if (!user || !isApproved || !userData?.linkedPlayerId || !displayArea)
+        return;
 
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/matches/pending/${displayArea}`
-        );
-        const data = await response.json();
+        // 1. Call the centralized API
+        const data = await getPendingMatches(displayArea);
 
-        // NEW LOGIC: Only show on Dashboard if I am ALREADY in the lineup
-        // AND I haven't verified yet.
+        // 2. Filter logic: Matches where user is in lineup but hasn't verified
         const myPersonalPending = data.filter((m: any) => {
           const isInLineup = [...m.lineups.teamA, ...m.lineups.teamB].includes(
-            userData.linkedPlayerId
+            userData.linkedPlayerId,
           );
           const hasNotVerified = !m.verifications.includes(user.uid);
+
           return isInLineup && hasNotVerified;
         });
 
         setPendingMatches(myPersonalPending);
       } catch (err) {
-        console.error("Failed to fetch pending matches", err);
+        console.error("Failed to fetch pending matches:", err);
       }
     };
 
-    if (displayArea && isApproved) fetchPendingMatches();
+    fetchPendingMatchesData();
   }, [displayArea, isApproved, userData?.linkedPlayerId]);
 
   // Update the editData whenever playerStats changes
@@ -231,51 +234,30 @@ export const UserDashboard = () => {
     }
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/users/claim-captain`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firebaseUid: auth.currentUser?.uid,
-            socialLink: claimData.social,
-            note: claimData.note,
-          }),
-        }
-      );
+      await claimCaptaincyApi({
+        firebaseUid: auth.currentUser?.uid,
+        socialLink: claimData.social,
+        note: claimData.note,
+      });
 
-      if (response.ok) {
-        alert("Success! You are now the Captain of " + displayArea);
-        setShowClaimModal(false);
-        // Refresh to show the Captain's Command Centre
-        window.location.reload();
-      } else {
-        throw new Error("Failed to promote");
-      }
-    } catch (err) {
+      alert("Success! You are now the Captain of " + displayArea);
+      setShowClaimModal(false);
+      window.location.reload();
+    } catch (err: any) {
       console.error(err);
-      alert("Something went wrong with the claim.");
+      alert(err.message || "Something went wrong with the claim.");
     }
   };
 
   const handleVerify = async (matchId: string) => {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/matches/${matchId}/verify`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ firebaseUid: auth.currentUser?.uid }),
-        }
-      );
+      await verifyMatchApi(matchId, auth.currentUser?.uid);
 
-      if (response.ok) {
-        // Remove from local state
-        setPendingMatches((prev) => prev.filter((m) => m._id !== matchId));
-        alert("Match confirmed! Stats will update once 75% of players agree.");
-      }
-    } catch (err) {
-      alert("Verification failed.");
+      // Update local state after success
+      setPendingMatches((prev) => prev.filter((m) => m._id !== matchId));
+      alert("Match confirmed! Stats will update once 75% of players agree.");
+    } catch (err: any) {
+      alert(err.message || "Verification failed.");
     }
   };
 
@@ -283,19 +265,16 @@ export const UserDashboard = () => {
     try {
       if (!userData?.firebaseUid) return;
 
-      // Use the service function instead of manual fetch
+      // editData is the state object from your modal form
       const updated = await updateUserProfile(userData.firebaseUid, editData);
 
-      // Success logic
       localStorage.setItem("diski_user_profile", JSON.stringify(updated));
       setShowEditModal(false);
-
-      // Smooth UI update: notify user before reload
       alert("Profile Updated!");
       window.location.reload();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Update failed", err);
-      alert("Could not update profile. Please try again.");
+      alert(err.message || "Could not update profile. Please try again.");
     }
   };
 
@@ -441,7 +420,7 @@ export const UserDashboard = () => {
                   const match = pendingMatches[0];
                   const confirmedCount = match.verifications.length;
                   const requiredCount = Math.ceil(
-                    match.expectedConfirmations * 0.75
+                    match.expectedConfirmations * 0.75,
                   );
                   return (
                     <Card

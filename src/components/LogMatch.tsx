@@ -11,6 +11,7 @@ import {
   Badge,
 } from "react-bootstrap";
 import { auth } from "../firebase/config";
+import { logMatchApi } from "../services/api/api";
 
 export const LogMatch = () => {
   const location = useLocation();
@@ -60,22 +61,14 @@ export const LogMatch = () => {
     };
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/matches`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(matchData),
-        }
-      );
+      // Use the API helper
+      await logMatchApi(matchData);
 
-      if (response.ok) {
-        alert("Match submitted for community verification!");
-        navigate("/home");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to submit match.");
+      alert("Match submitted for community verification!");
+      navigate("/home");
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      alert(err.message || "Failed to submit match.");
     } finally {
       setSubmitting(false);
     }
@@ -132,7 +125,7 @@ export const LogMatch = () => {
   const calculateTeamScore = (team: any[]) => {
     return team.reduce(
       (acc, player) => acc + (stats[player._id]?.goals || 0),
-      0
+      0,
     );
   };
 

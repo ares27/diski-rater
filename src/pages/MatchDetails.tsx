@@ -13,7 +13,7 @@ import {
   ButtonGroup,
 } from "react-bootstrap";
 import { auth } from "../firebase/config";
-import { getMatchDetails } from "../services/api/api";
+import { getMatchDetails, joinMatchApi } from "../services/api/api";
 
 export const MatchDetails = () => {
   const { id } = useParams();
@@ -22,7 +22,7 @@ export const MatchDetails = () => {
   const [loading, setLoading] = useState(true);
 
   const userProfile = JSON.parse(
-    localStorage.getItem("diski_user_profile") || "{}"
+    localStorage.getItem("diski_user_profile") || "{}",
   );
   const myPlayerId = userProfile.linkedPlayerId;
 
@@ -62,44 +62,41 @@ export const MatchDetails = () => {
   const winnerB = isFinished && match.score.teamB > match.score.teamA;
 
   const isPlayerInTeamA = match.lineups.teamA.some(
-    (p: any) => (p._id || p) === myPlayerId
+    (p: any) => (p._id || p) === myPlayerId,
   );
   const isPlayerInTeamB = match.lineups.teamB.some(
-    (p: any) => (p._id || p) === myPlayerId
+    (p: any) => (p._id || p) === myPlayerId,
   );
   const isPlayerInMatch = isPlayerInTeamA || isPlayerInTeamB;
 
   const handleSelfJoin = async (team: "teamA" | "teamB") => {
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/matches/${id}/join`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firebaseUid: auth.currentUser?.uid,
-            team: team,
-          }),
-        }
-      );
+    if (!auth.currentUser) {
+      alert("You must be logged in to join a match.");
+      return;
+    }
 
-      if (response.ok) {
-        alert(
-          "Lineup updated! You can now verify this match on your dashboard."
-        );
-        const updatedMatch = await response.json();
-        setMatch(updatedMatch.match);
-        navigate("/home");
-      }
-    } catch (error) {
-      alert("Error joining match.");
+    try {
+      // Use the API helper - note we pass the match ID from your component's state/params
+      const updatedData = await joinMatchApi(id, {
+        firebaseUid: auth.currentUser.uid,
+        team: team,
+      });
+
+      alert("Lineup updated! You can now verify this match on your dashboard.");
+
+      // The backend returns { message, match: ... } based on your snippet
+      setMatch(updatedData.match);
+      navigate("/home");
+    } catch (error: any) {
+      console.error("Join error:", error);
+      alert(error.message || "Error joining match.");
     }
   };
 
   const handleShare = async () => {
     const isWin = (winnerA && isPlayerInTeamA) || (winnerB && isPlayerInTeamB);
     const myStats = match.playerPerformance.find(
-      (s: any) => (s.playerId._id || s.playerId) === myPlayerId
+      (s: any) => (s.playerId._id || s.playerId) === myPlayerId,
     );
 
     const shareData = {
@@ -119,7 +116,7 @@ export const MatchDetails = () => {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(
-          `${shareData.text} ${shareData.url}`
+          `${shareData.text} ${shareData.url}`,
         );
         alert("Match report link copied to clipboard!");
       }
@@ -144,7 +141,7 @@ export const MatchDetails = () => {
       <tbody>
         {players.map((player: any) => {
           const stats = match.playerPerformance.find(
-            (s: any) => (s.playerId._id || s.playerId) === player._id
+            (s: any) => (s.playerId._id || s.playerId) === player._id,
           );
           // Fixed: Define isThisPlayerMVP inside the map loop
           const isThisPlayerMVP = stats?.isMVP;

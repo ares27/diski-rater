@@ -11,13 +11,14 @@ import {
 } from "react-bootstrap";
 import { getPendingUsers, approveUser, declineUser } from "../services/api/api";
 import { auth } from "../firebase/config"; // Ensure auth is imported for the API call
+import { updateSquadLinkApi } from "../services/api/api";
 
 // Accept squadProps as a prop to access refreshUserStatus
 export const CaptainTools = ({ squadProps }: any) => {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>(
-    {}
+    {},
   );
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [tempLink, setTempLink] = useState("");
@@ -60,7 +61,7 @@ export const CaptainTools = ({ squadProps }: any) => {
       // Filter so Captain only sees their area
       const captainArea = userData?.area || userData?.areaId;
       const filtered = playersArray.filter(
-        (u) => (u.area || u.areaId) === captainArea
+        (u) => (u.area || u.areaId) === captainArea,
       );
 
       setPendingUsers(filtered);
@@ -84,7 +85,7 @@ export const CaptainTools = ({ squadProps }: any) => {
 
     if (
       !window.confirm(
-        `Approve this player as a "${role}" and add them to the squad?`
+        `Approve this player as a "${role}" and add them to the squad?`,
       )
     )
       return;
@@ -123,33 +124,30 @@ export const CaptainTools = ({ squadProps }: any) => {
   };
 
   const handleSaveLink = async () => {
+    // 1. Validation logic remains in the UI layer
     if (!tempLink.includes("chat.whatsapp.com")) {
       alert("Please enter a valid WhatsApp invite link.");
       return;
     }
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/users/update-squad-link`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firebaseUid: auth.currentUser?.uid,
-            newSocialLink: tempLink,
-          }),
-        }
-      );
+      // 2. Use the central API helper
+      await updateSquadLinkApi({
+        firebaseUid: auth.currentUser?.uid,
+        newSocialLink: tempLink,
+      });
 
-      if (response.ok) {
-        alert("WhatsApp link updated!");
-        setIsEditingLink(false);
+      // 3. Success UI updates
+      alert("WhatsApp link updated!");
+      setIsEditingLink(false);
 
-        // 2. Use the refresh function to update the global state
-        if (refreshUserStatus) await refreshUserStatus();
+      // 4. Refresh global state if the provider function exists
+      if (refreshUserStatus) {
+        await refreshUserStatus();
       }
-    } catch (err) {
-      alert("Failed to update link.");
+    } catch (err: any) {
+      console.error("Link update error:", err);
+      alert(err.message || "Failed to update link.");
     }
   };
 
